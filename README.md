@@ -1,4 +1,4 @@
-<img src="https://cdn.discordapp.com/attachments/595762657458651152/599842701978107904/unknown.png">
+<img src="https://user-images.githubusercontent.com/47786795/63953615-f6b28f80-ca81-11e9-935d-258af62ffcb1.PNG">
 
 #### Master Build Status
 [![Build Status](https://travis-ci.org/turtlecoin/turtle-wallet-pro.svg?branch=master)](https://travis-ci.org/turtlecoin/turtle-wallet-pro)
