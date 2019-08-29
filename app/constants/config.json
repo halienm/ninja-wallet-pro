@@ -1,0 +1,13 @@
+{
+  "walletFile": "",
+  "enableAutoOptimization": true,
+  "scanCoinbaseTransactions": false,
+  "autoSelectDaemon": true,
+  "minimizeToTray": false,
+  "logLevel": "DISABLED",
+  "daemonHost": "server.ninjacoin.org",
+  "daemonPort": 11801,
+  "isCache": false,
+  "useSSL": false,
+  "darkMode": true
+}
