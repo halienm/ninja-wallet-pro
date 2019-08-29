@@ -16,7 +16,7 @@
 
 ## Installing
 
-**Check out the full tutorial on how to install and use Pro at the [official TurtleCoin docs page](https://docs.turtlecoin.lol/guides/wallets/using-pro-wallet)!**
+**Check out the full tutorial on how to install and use Pro at the [official TurtleCoin docs page](https://docs.turtlecoin.lol/guides/wallets/using-prooton-wallet)!**
 
 ## Development Setup (All Platforms)
 
@@ -44,7 +44,7 @@ git clone https://github.com/ninjacoin-master/ninja-wallet-pro.git
 And then install the dependencies with yarn.
 
 ```bash
-$ cd turtle-wallet-pro
+$ cd ninja-wallet-pro
 $ yarn
 ```
 
