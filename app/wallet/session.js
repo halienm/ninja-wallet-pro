@@ -89,7 +89,7 @@ export default class WalletSession {
         this.wallet.setLogLevel(LogLevel.DEBUG);
         this.wallet.setLoggerCallback(prettyMessage => {
           const logStream = fs.createWriteStream(
-            `${directories[1]}/ninjaprowallet.log`,
+            `${directories[1]}/ninja-wallet-pro.log`,
             {
               flags: 'a'
             }

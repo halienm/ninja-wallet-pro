@@ -24,8 +24,8 @@ let config = null;
 const homedir = os.homedir();
 
 const directories = [
-  `${homedir}/.ninjaprowallet`,
-  `${homedir}/.ninjaprowallet/logs`
+  `${homedir}/.ninja-wallet-pro`,
+  `${homedir}/.ninja-wallet-pro/logs`
 ];
 
 const [programDirectory] = directories;

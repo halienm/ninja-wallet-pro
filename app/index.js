@@ -45,15 +45,15 @@ updater.getLatestVersion();
 
 export const loginCounter = new LoginCounter();
 
-remote.app.setAppUserModelId('wallet.ninjapro.extra');
+remote.app.setAppUserModelId('wallet.ninja-wallet-pro.extra');
 
 log.debug(`NinjaCoin Pro wallet started...`);
 
 const homedir = os.homedir();
 
 export const directories = [
-  `${homedir}/.ninjaprowallet`,
-  `${homedir}/.ninjaprowallet/logs`
+  `${homedir}/.ninja-wallet-pro`,
+  `${homedir}/.ninja-wallet-pro/logs`
 ];
 
 const [programDirectory] = directories;

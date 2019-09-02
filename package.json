@@ -1,6 +1,6 @@
 {
     "name": "ninja-wallet-pro",
-    "productName": "NinjaCoin Wallet Pro",
+    "productName": "ninja wallet pro",
     "version": "1.0.25",
     "description": "NinjaCoin wallet based on React, React Router, Webpack, and React Hot Loader",
     "scripts": {
@@ -50,8 +50,8 @@
     },
     "main": "./app/main.prod.js",
     "build": {
-        "productName": "ninja-wallet-pro",
-        "appId": "wallet.ninjapro.extra",
+        "productName": "ninja wallet pro",
+        "appId": "wallet.ninja-wallet-pro.extra",
         "files": [
             "app/dist/",
             "app/app.html",
@@ -97,7 +97,7 @@
         "publish": {
             "provider": "github",
             "owner": "NinjaCoin.org",
-            "repo": "ninjapro",
+            "repo": "ninja-wallet-pro",
             "private": false
         }
     },

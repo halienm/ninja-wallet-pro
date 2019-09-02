@@ -95,7 +95,7 @@ class NavBar extends Component<Props, State> {
                   <div className="navbar-item">
                     <img
                       src="images/icon_color_64x64.png"
-                      alt="coin ninjapro wallet logo in orange"
+                      alt="coin ninja wallet pro logo in orange"
                     />
                   </div>
                 </div>
