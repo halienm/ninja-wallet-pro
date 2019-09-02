@@ -1,4 +1,5 @@
 <img src="https://user-images.githubusercontent.com/47786795/63953615-f6b28f80-ca81-11e9-935d-258af62ffcb1.PNG">
+
 #### Master Build Status
 [![Build Status](https://travis-ci.org/turtlecoin/turtle-wallet-pro.svg?branch=master)](https://travis-ci.org/turtlecoin/turtle-wallet-pro)
 
@@ -43,7 +44,7 @@ git clone https://github.com/ninjacoin-master/ninja-wallet-pro.git
 And then install the dependencies with yarn.
 
 ```bash
-$ cd turtle-wallet-pro
+$ cd ninja-wallet-pro
 $ yarn
 ```
 
