@@ -5,7 +5,7 @@
   "autoSelectDaemon": true,
   "minimizeToTray": false,
   "logLevel": "DISABLED",
-  "daemonHost": "server.ninajcoin.org",
+  "daemonHost": "server.ninjacoin.org",
   "daemonPort": 11801,
   "isCache": false,
   "useSSL": false,
