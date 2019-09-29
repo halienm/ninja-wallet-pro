@@ -98,14 +98,14 @@
     },
     "publish": {
       "provider": "github",
-      "owner": "ExtraHash",
-      "repo": "proton",
+      "owner": "NinjaCoin",
+      "repo": "ninja-wallet-pro",
       "private": false
     }
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/turtlecoin/turtle-wallet-proton.git"
+    "url": "git+https://github.com/ninjacoin-master/ninja-wallet-pro.git"
   },
   "author": {
     "name": "ExtraHash",
