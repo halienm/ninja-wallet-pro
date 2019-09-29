@@ -22,8 +22,8 @@ let config = null;
 const homedir = os.homedir();
 
 const directories = [
-  `${homedir}/.ninja-walletpro`,
-  `${homedir}/.ninja-walletpro/logs`
+  `${homedir}/.ninja-wallet-pro`,
+  `${homedir}/.ninja-wallet-pro/logs`
 ];
 
 const [programDirectory] = directories;
@@ -153,9 +153,9 @@ contextMenu({
       visible: params.selectionText.trim().length === 64,
       click: () => {
         shell.openExternal(
-          `https://explorer.turtlecoin.lol/?search=${encodeURIComponent(
+          `http://explorer.ninjacoin.org/?hash=${(
             params.selectionText
-          )}`
+          )}#blockchain_transaction`
         );
       }
     }
