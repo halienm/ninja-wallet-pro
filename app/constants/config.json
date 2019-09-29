@@ -2,7 +2,7 @@
   "walletFile": "",
   "enableAutoOptimization": true,
   "scanCoinbaseTransactions": false,
-  "autoSelectDaemon": true,
+  "autoSelectDaemon": false,
   "minimizeToTray": false,
   "logLevel": "DISABLED",
   "daemonHost": "server.ninjacoin.org",

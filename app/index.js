@@ -53,8 +53,8 @@ eventEmitter.setMaxListeners(6);
 const homedir = os.homedir();
 
 export const directories = [
-  `${homedir}/.ninja-walletpro`,
-  `${homedir}/.ninja-walletpro/logs`
+  `${homedir}/.ninja-wallet-pro`,
+  `${homedir}/.ninja-wallet-pro/logs`
 ];
 
 export const updater = new AutoUpdater();
@@ -64,7 +64,7 @@ export const loginCounter = new LoginCounter();
 
 remote.app.setAppUserModelId('wallet.ninja-wallet-pro.extra');
 
-log.debug(`NinjaCoin Pro wallet started...`);
+log.debug(`NinjaCoin Wallet Pro started...`);
 
 const [programDirectory] = directories;
 
@@ -129,7 +129,7 @@ eventEmitter.on('updateRequired', updateFile => {
       </center>
       <br />
       <p className={`subtitle ${textColor}`}>
-        There&apos;s a new version of NinjaCoin Pro Wallet available. Would you like to
+        There&apos;s a new version of NinjaCoin Wallet Pro available. Would you like to
         download it?
       </p>
     </div>

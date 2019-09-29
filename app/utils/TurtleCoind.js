@@ -12,8 +12,8 @@ const homedir = os.homedir();
 const operatingSystem = os.platform();
 
 const directories = [
-  `${homedir}/.ninja-walletpro`,
-  `${homedir}/.ninja-walletpro/logs`
+  `${homedir}/.ninja-wallet-pro`,
+  `${homedir}/.ninja-wallet-pro/logs`
 ];
 
 export default class NinjaCoind {
