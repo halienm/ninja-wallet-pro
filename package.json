@@ -108,9 +108,9 @@
     "url": "git+https://github.com/ninjacoin-master/ninja-wallet-pro.git"
   },
   "author": {
-    "name": "ExtraHash",
-    "email": "extrahash@protonmail.com",
-    "url": "http://getproton.org"
+    "name": "NinjaCoin",
+    "email": "contact@ninjacoin.org",
+    "url": "http://www.ninjacoin.org"
   },
   "contributors": [
     {
@@ -126,15 +126,15 @@
   ],
   "license": "GPL-3.0",
   "bugs": {
-    "url": "https://github.com/turtlecoin/turtle-wallet-proton/issues"
+    "url": "https://github.com/ninjacoin-master/ninja-wallet-pro/issues"
   },
   "keywords": [
-    "turtlecoin",
+    "ninjacoin",
     "gui wallet",
     "electron",
-    "proton"
+    "pro"
   ],
-  "homepage": "https://github.com/turtlecoin/turtle-wallet-proton#readme",
+  "homepage": "https://github.com/ninjacoin-master/ninja-wallet-pro#readme",
   "jest": {
     "testURL": "http://localhost/",
     "moduleNameMapper": {
