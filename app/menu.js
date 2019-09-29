@@ -1,10 +1,15 @@
 // @flow
-import { app, Menu, shell, BrowserWindow, dialog } from 'electron';
+//
+// Copyright (C) 2019 ExtraHash
+//
+// Please see the included LICENSE file for more information.
+import { app, Menu, shell, BrowserWindow } from 'electron';
 import log from 'electron-log';
-import npmPackage from '../package.json';
 import LocalizedStrings from 'react-localization';
+import npmPackage from '../package.json';
 
 export const il8n = new LocalizedStrings({
+  // eslint-disable-next-line global-require
   en: require('./il8n/en-menu.json')
 });
 
@@ -49,7 +54,7 @@ export default class MenuBuilder {
           label: `${il8n.about} ${productName}`,
           click: () => {
             shell.openExternal(
-              'https://github.com/ninjacoin-master/ninja-wallet-pro#readme'
+              'http://github.com/turtlecoin/turtle-wallet-proton#readme'
             );
           }
         },
@@ -188,6 +193,13 @@ export default class MenuBuilder {
           click: () => {
             this.handleBackup();
           }
+        },
+        {
+          label: il8n.lock,
+          accelerator: 'Command+L',
+          click: () => {
+            this.handleLock();
+          }
         }
       ]
     };
@@ -228,14 +240,14 @@ export default class MenuBuilder {
         {
           label: il8n.support,
           click() {
-            shell.openExternal('https://discord.gg/P7urHQs');
+            shell.openExternal('https://discord.gg/VaKtsXt');
           }
         },
         {
           label: il8n.report_bug,
           click() {
             shell.openExternal(
-              'https://github.com/ninjacoin-master/ninja-wallet-pro/issues'
+              'https://github.com/turtlecoin/turtle-wallet-proton/issues'
             );
           }
         },
@@ -243,7 +255,7 @@ export default class MenuBuilder {
           label: il8n.feature_request,
           click() {
             shell.openExternal(
-              'https://github.com/ninjacoin-master/ninja-wallet-pro/issues'
+              'https://github.com/turtlecoin/turtle-wallet-proton/issues'
             );
           }
         }
@@ -293,23 +305,14 @@ export default class MenuBuilder {
     this.mainWindow.webContents.send('exportToCSV');
   }
 
+  handleLock() {
+    this.mainWindow.webContents.send('handleLock');
+  }
+
   handleRestore() {
     this.mainWindow.webContents.send('handleSaveSilent');
     log.debug('Import menu selected.');
-    // seed will be 0, keys will be 1
-    const userSelection = dialog.showMessageBox(null, {
-      type: 'info',
-      buttons: [il8n.cancel, il8n.seed, il8n.keys],
-      title: il8n.restore,
-      message: il8n.seed_or_keys
-    });
-    if (userSelection === 1) {
-      log.debug('User selected to import from seed...');
-      this.mainWindow.webContents.send('importSeed');
-    } else if (userSelection === 2) {
-      log.debug('User selected to import from keys...');
-      this.mainWindow.webContents.send('importKey');
-    }
+    this.mainWindow.webContents.send('handleImport');
   }
 
   buildDefaultTemplate() {
@@ -372,6 +375,13 @@ export default class MenuBuilder {
             label: il8n.backup,
             click: () => {
               this.handleBackup();
+            }
+          },
+          {
+            label: il8n.lock,
+            accelerator: 'Ctrl+L',
+            click: () => {
+              this.handleLock();
             }
           }
         ]
@@ -444,7 +454,7 @@ export default class MenuBuilder {
             label: il8n.about,
             click() {
               shell.openExternal(
-                'https://github.com/ninjacoin-master/ninja-wallet-pro#readme'
+                'http://github.com/ninjacoin-master/ninja-wallet-pro#readme'
               );
             }
           },
@@ -452,7 +462,7 @@ export default class MenuBuilder {
             label: il8n.report_bug,
             click() {
               shell.openExternal(
-                'https://github.com/ninjacoin-master/ninja-wallet-pro/issues'
+                'http://github.com/ninjacoin-master/ninja-wallet-pro/issues'
               );
             }
           },
@@ -460,7 +470,7 @@ export default class MenuBuilder {
             label: il8n.feature_request,
             click() {
               shell.openExternal(
-                'https://github.com/ninjacoin-master/ninja-wallet-pro/issues'
+                'http://github.com/ninjacoin-master/ninja-wallet-pro/issues'
               );
             }
           }

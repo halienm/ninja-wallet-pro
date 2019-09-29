@@ -1,21 +1,19 @@
-/**
- * This module executes inside of electron's main process. You can start
- * electron renderer process from here and communicate with the other processes
- * through IPC.
- *
- * When running `yarn build` or `yarn build-main`, this file is compiled to
- * `./app/main.prod.js` using webpack. This gives us some performance wins.
- *
- * @flow
- */
+// @flow
+//
+// Copyright (C) 2019 ExtraHash
+//
+// Please see the included LICENSE file for more information.
 import path from 'path';
 import os from 'os';
 import fs from 'fs';
-import { app, BrowserWindow, Tray, Menu } from 'electron';
+import { app, BrowserWindow, Tray, Menu, shell } from 'electron';
+import isDev from 'electron-is-dev';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import contextMenu from 'electron-context-menu';
 import MenuBuilder from './menu';
+import iConfig from './constants/config';
+import NinjaCoind from './utils/NinjaCoind';
 
 let isQuitting;
 let tray = null;
@@ -24,8 +22,8 @@ let config = null;
 const homedir = os.homedir();
 
 const directories = [
-  `${homedir}/.ninja-wallet-pro`,
-  `${homedir}/.ninja-wallet-pro/logs`
+  `${homedir}/.ninja-walletpro`,
+  `${homedir}/.ninja-walletpro/logs`
 ];
 
 const [programDirectory] = directories;
@@ -34,11 +32,41 @@ if (fs.existsSync(`${programDirectory}/config.json`)) {
   const rawUserConfig = fs
     .readFileSync(`${programDirectory}/config.json`)
     .toString();
-  config = JSON.parse(rawUserConfig);
+
+  // check if the user config is valid JSON before parsing it
+  try {
+    config = JSON.parse(rawUserConfig);
+  } catch {
+    // if it isn't, set the internal config to the user config
+    config = iConfig;
+  }
 }
+
+log.debug('Checking if program directories are present...');
+directories.forEach(dir => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir);
+    log.debug(`${dir} directories not detected, creating...`);
+  }
+});
+
+const daemonLogFile = path.resolve(directories[1], 'NinjaCoind.log');
+fs.closeSync(fs.openSync(daemonLogFile, 'w'));
+
+let useLocalDaemon;
+let localDaemon;
+let ninjaCoindPath;
 
 if (config) {
   isQuitting = !config.closeToTray;
+  // eslint-disable-next-line prefer-destructuring
+  useLocalDaemon = config.useLocalDaemon;
+  // eslint-disable-next-line prefer-destructuring
+  ninjaCoindPath = config.ninjaCoindPath;
+}
+
+if (useLocalDaemon && ninjaCoindPath) {
+  localDaemon = new NinjaCoind(ninjaCoindPath);
 }
 
 if (os.platform() !== 'win32') {
@@ -105,6 +133,9 @@ if (!isSingleInstance) {
 }
 
 app.on('before-quit', () => {
+  if (useLocalDaemon) {
+    localDaemon.quit();
+  }
   log.debug('Exiting application.');
   isQuitting = true;
 });
@@ -114,8 +145,21 @@ app.on('window-all-closed', () => {
 });
 
 contextMenu({
-  // eslint-disable-next-line no-unused-vars
-  prepend: (defaultActions, params) => []
+  showInspectElement: isDev,
+  prepend: (defaultActions, params) => [
+    {
+      label: 'Search block explorer for this hash',
+      // Only show it when right-clicking text
+      visible: params.selectionText.trim().length === 64,
+      click: () => {
+        shell.openExternal(
+          `https://explorer.turtlecoin.lol/?search=${encodeURIComponent(
+            params.selectionText
+          )}`
+        );
+      }
+    }
+  ]
 });
 
 app.on('ready', async () => {
@@ -174,6 +218,11 @@ app.on('ready', async () => {
   mainWindow.webContents.on('did-finish-load', () => {
     if (!mainWindow) {
       throw new Error('"mainWindow" is not defined');
+    }
+    if (localDaemon) {
+      if (localDaemon.child.exitCode) {
+        mainWindow.webContents.send('failedDaemonInit');
+      }
     }
     if (process.env.START_MINIMIZED) {
       mainWindow.minimize();

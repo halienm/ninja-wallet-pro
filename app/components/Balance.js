@@ -1,15 +1,27 @@
 // @flow
+//
+// Copyright (C) 2019 ExtraHash
+//
+// Please see the included LICENSE file for more information.
 import React, { Component } from 'react';
+import ReactLoading from 'react-loading';
 import log from 'electron-log';
 import ReactTooltip from 'react-tooltip';
-import { session, il8n, eventEmitter } from '../index';
+import { session, il8n, eventEmitter, config } from '../index';
 
-type Props = {};
+type Props = {
+  size: string,
+  darkMode: boolean
+};
 
 type State = {
   unlockedBalance: number,
   lockedBalance: number,
-  darkMode: boolean
+  fiatPrice: number,
+  displayCurrency: string,
+  fiatSymbol: string,
+  symbolLocation: string,
+  fiatDecimals: number
 };
 
 export default class Balance extends Component<Props, State> {
@@ -22,31 +34,44 @@ export default class Balance extends Component<Props, State> {
     this.state = {
       unlockedBalance: session.getUnlockedBalance(),
       lockedBalance: session.getLockedBalance(),
-      darkMode: session.darkMode
+      fiatPrice: session.fiatPrice,
+      displayCurrency: config.displayCurrency,
+      fiatSymbol: config.fiatSymbol,
+      symbolLocation: config.symbolLocation,
+      fiatDecimals: config.fiatDecimals
     };
     this.refreshBalanceOnNewTransaction = this.refreshBalanceOnNewTransaction.bind(
       this
     );
-    this.darkModeOn = this.darkModeOn.bind(this);
-    this.darkModeOff = this.darkModeOff.bind(this);
+    this.updateFiatPrice = this.updateFiatPrice.bind(this);
+    this.switchCurrency = this.switchCurrency.bind(this);
   }
 
   componentDidMount() {
     if (session.wallet !== undefined) {
       session.wallet.setMaxListeners(2);
       session.wallet.on('transaction', this.refreshBalanceOnNewTransaction);
+      eventEmitter.on('transaction', this.refreshBalanceOnNewTransaction);
     }
-    eventEmitter.on('darkmodeon', this.darkModeOn);
-    eventEmitter.on('darkmodeoff', this.darkModeOff);
+    eventEmitter.on('gotFiatPrice', this.updateFiatPrice);
   }
 
   componentWillUnmount() {
     if (session.wallet !== undefined) {
       session.wallet.off('transaction', this.refreshBalanceOnNewTransaction);
+      eventEmitter.off('transaction', this.refreshBalanceOnNewTransaction);
     }
-    eventEmitter.off('darkmodeon', this.darkModeOn);
-    eventEmitter.off('darkmodeoff', this.darkModeOff);
+    eventEmitter.off('gotFiatPrice', this.updateFiatPrice);
   }
+
+  updateFiatPrice = (fiatPrice: number) => {
+    this.setState({
+      fiatPrice,
+      fiatSymbol: config.fiatSymbol,
+      symbolLocation: config.symbolLocation,
+      fiatDecimals: config.fiatDecimals
+    });
+  };
 
   refreshBalanceOnNewTransaction = () => {
     log.debug('Transaction found, refreshing balance...');
@@ -57,63 +82,170 @@ export default class Balance extends Component<Props, State> {
     ReactTooltip.rebuild();
   };
 
-  darkModeOn = () => {
-    this.setState({
-      darkMode: true
-    });
-  };
-
-  darkModeOff = () => {
-    this.setState({
-      darkMode: false
-    });
+  switchCurrency = () => {
+    const { displayCurrency } = this.state;
+    if (displayCurrency === 'NINJA') {
+      this.setState({
+        displayCurrency: 'fiat'
+      });
+      session.modifyConfig('displayCurrency', 'fiat');
+      eventEmitter.emit('modifyCurrency', 'fiat');
+    }
+    if (displayCurrency === 'fiat') {
+      this.setState({
+        displayCurrency: 'NINJA'
+      });
+      session.modifyConfig('displayCurrency', 'NINJA');
+      eventEmitter.emit('modifyCurrency', 'NINJA');
+    }
+    ReactTooltip.rebuild();
   };
 
   render() {
-    const { darkMode, unlockedBalance, lockedBalance } = this.state;
+    const { darkMode, size } = this.props;
+    const {
+      unlockedBalance,
+      lockedBalance,
+      fiatPrice,
+      displayCurrency,
+      fiatSymbol,
+      symbolLocation,
+      fiatDecimals
+    } = this.state;
+    const color = darkMode ? 'is-dark' : 'is-white';
 
     let balanceTooltip;
 
-    if (session.wallet) {
+    if (session.wallet && displayCurrency === 'NINJA') {
       balanceTooltip =
         `Unlocked: ${session.atomicToHuman(unlockedBalance, true)} ${
-          session.wallet.config.ticker
+          il8n.NINJA
         }<br>` +
-        `Locked: ${session.atomicToHuman(lockedBalance, true)} ${
-          session.wallet.config.ticker
-        }`;
+        `Locked: ${session.atomicToHuman(lockedBalance, true)} ${il8n.NINJA}`;
+    } else if (
+      session.wallet &&
+      symbolLocation === 'prefix' &&
+      displayCurrency === 'fiat'
+    ) {
+      balanceTooltip =
+        `Unlocked: ${fiatSymbol}${(
+          fiatPrice * session.atomicToHuman(unlockedBalance, false)
+        ).toFixed(fiatDecimals)}
+        <br>` +
+        `Locked: ${fiatSymbol}${(
+          fiatPrice * session.atomicToHuman(lockedBalance, false)
+        ).toFixed(fiatDecimals)}`;
+    } else if (
+      session.wallet &&
+      symbolLocation === 'suffix' &&
+      displayCurrency === 'fiat'
+    ) {
+      balanceTooltip =
+        `Unlocked: ${(
+          fiatPrice * session.atomicToHuman(unlockedBalance, false)
+        ).toFixed(fiatDecimals)}${fiatSymbol}
+        <br>` +
+        `Locked: ${(
+          fiatPrice * session.atomicToHuman(lockedBalance, false)
+        ).toFixed(fiatDecimals)}${fiatSymbol}`;
     } else {
       balanceTooltip = 'No wallet open!';
     }
 
     return (
-      // prettier-ignore
-      <div className="control statusicons">
+      <div
+        className="control statusicons"
+        onClick={this.switchCurrency}
+        onKeyPress={this.switchCurrency}
+        role="button"
+        tabIndex={0}
+        onMouseDown={event => event.preventDefault()}
+      >
         <div className="tags has-addons">
-          <span className={
-            darkMode
-              ? 'tag is-dark is-large'
-              : 'tag is-white is-large'}>{il8n.balance_colon}</span>
-          <span
-            className={
-              lockedBalance > 0
-                ? 'tag is-warning is-large'
-                : 'tag is-info is-large'
-            }
-            data-tip={balanceTooltip}
-          >
-            {lockedBalance > 0 ? (
-              <i className="fa fa-lock" />
-            ) : (
-              <i className="fa fa-unlock" />
-            )}
-            &nbsp;
-            {session.atomicToHuman(
-              unlockedBalance + lockedBalance,
-              true
-            )}
-            &nbsp;NINJA
-          </span>
+          <span className={`tag ${color} ${size}`}>{il8n.balance_colon}</span>
+          {displayCurrency === 'NINJA' && (
+            <span
+              className={
+                lockedBalance > 0
+                  ? `tag is-warning ${size}`
+                  : `tag is-info ${size}`
+              }
+              data-tip={balanceTooltip}
+            >
+              {lockedBalance > 0 ? (
+                <i className="fa fa-lock" />
+              ) : (
+                <i className="fa fa-unlock" />
+              )}
+              &nbsp;
+              {session.atomicToHuman(unlockedBalance + lockedBalance, true)}
+              &nbsp;{il8n.NINJA}
+            </span>
+          )}
+          {displayCurrency === 'fiat' && symbolLocation === 'prefix' && (
+            <span
+              className={
+                lockedBalance > 0
+                  ? `tag is-warning ${size}`
+                  : `tag is-info ${size}`
+              }
+              data-tip={balanceTooltip}
+            >
+              {lockedBalance > 0 ? (
+                <i className="fa fa-lock" />
+              ) : (
+                <i className="fa fa-unlock" />
+              )}
+              &nbsp;
+              {fiatPrice !== 0 ? (
+                // eslint-disable-next-line prefer-template
+                fiatSymbol +
+                (
+                  fiatPrice *
+                  session.atomicToHuman(unlockedBalance + lockedBalance, false)
+                ).toFixed(fiatDecimals)
+              ) : (
+                <ReactLoading
+                  type="bubbles"
+                  color="#F5F5F5"
+                  height={30}
+                  width={30}
+                />
+              )}
+            </span>
+          )}
+          {displayCurrency === 'fiat' && symbolLocation === 'suffix' && (
+            <span
+              className={
+                lockedBalance > 0
+                  ? `tag is-warning ${size}`
+                  : `tag is-info ${size}`
+              }
+              data-tip={balanceTooltip}
+            >
+              {lockedBalance > 0 ? (
+                <i className="fa fa-lock" />
+              ) : (
+                <i className="fa fa-unlock" />
+              )}
+              &nbsp;
+              {fiatPrice !== 0 ? (
+                // eslint-disable-next-line prefer-template
+
+                (
+                  fiatPrice *
+                  session.atomicToHuman(unlockedBalance + lockedBalance, false)
+                ).toFixed(fiatDecimals) + fiatSymbol
+              ) : (
+                <ReactLoading
+                  type="bubbles"
+                  color="#F5F5F5"
+                  height={30}
+                  width={30}
+                />
+              )}
+            </span>
+          )}
         </div>
       </div>
     );

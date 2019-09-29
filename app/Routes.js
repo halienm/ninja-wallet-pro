@@ -1,3 +1,8 @@
+// @flow
+//
+// Copyright (C) 2019 ExtraHash
+//
+// Please see the included LICENSE file for more information.
 import React from 'react';
 import { Switch, Route } from 'react-router';
 import routes from './constants/routes';
@@ -11,6 +16,7 @@ import SettingsPage from './containers/SettingsPage';
 import LoginPage from './containers/LoginPage';
 import ChangePasswordPage from './containers/ChangePasswordPage';
 import FirstStartupPage from './containers/FirstStartupPage';
+import TerminalPage from './containers/TerminalPage';
 
 export default () => (
   <App>
@@ -23,6 +29,7 @@ export default () => (
       <Route exact path={routes.SETTINGS} component={SettingsPage} />
       <Route exact path={routes.LOGIN} component={LoginPage} />
       <Route exact path={routes.FIRSTSTARTUP} component={FirstStartupPage} />
+      <Route exact path={routes.TERMINAL} component={TerminalPage} />
       <Route
         exact
         path={routes.CHANGEPASSWORD}

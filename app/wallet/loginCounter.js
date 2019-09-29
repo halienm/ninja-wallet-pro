@@ -1,4 +1,8 @@
 // @flow
+//
+// Copyright (C) 2019 ExtraHash
+//
+// Please see the included LICENSE file for more information.
 export default class LoginCounter {
   userLoginAttempted: boolean;
 
@@ -6,11 +10,17 @@ export default class LoginCounter {
 
   lastLoginAttemptFailed: boolean;
 
-  freshRestore: false;
+  freshRestore: boolean;
 
   loginsAttempted: number;
 
   navBarCount: number;
+
+  daemonLog: string[];
+
+  loopTest: boolean;
+
+  looping: boolean;
 
   constructor() {
     this.userLoginAttempted = false;
@@ -19,5 +29,7 @@ export default class LoginCounter {
     this.freshRestore = false;
     this.loginsAttempted = 0;
     this.navBarCount = 0;
+    this.loopTest = false;
+    this.looping = false;
   }
 }

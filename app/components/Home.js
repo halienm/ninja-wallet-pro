@@ -1,11 +1,16 @@
 // @flow
+//
+// Copyright (C) 2019 ExtraHash
+//
+// Please see the included LICENSE file for more information.
 import log from 'electron-log';
 import React, { Component } from 'react';
 import ReactTooltip from 'react-tooltip';
-import { session, eventEmitter, il8n, loginCounter } from '../index';
+import { session, eventEmitter, il8n, loginCounter, config } from '../index';
 import NavBar from './NavBar';
 import BottomBar from './BottomBar';
 import Redirector from './Redirector';
+import Modal from './Modal';
 import uiType from '../utils/uitype';
 
 let displayedTransactionCount: number = 50;
@@ -15,7 +20,12 @@ type Props = {};
 type State = {
   transactions: Array<any>,
   totalTransactionCount: number,
-  darkMode: boolean
+  darkMode: boolean,
+  displayCurrency: string,
+  fiatPrice: number,
+  fiatSymbol: string,
+  symbolLocation: string,
+  fiatDecimals: number
 };
 
 export default class Home extends Component<Props, State> {
@@ -32,12 +42,18 @@ export default class Home extends Component<Props, State> {
         false
       ),
       totalTransactionCount: session.getTransactions().length,
-      darkMode: session.darkMode
+      darkMode: session.darkMode,
+      displayCurrency: config.displayCurrency,
+      fiatPrice: session.fiatPrice,
+      fiatSymbol: config.fiatSymbol,
+      symbolLocation: config.symbolLocation,
+      fiatDecimals: config.fiatDecimals
     };
     this.refreshListOnNewTransaction = this.refreshListOnNewTransaction.bind(
       this
     );
     this.openNewWallet = this.openNewWallet.bind(this);
+    this.modifyCurrency = this.modifyCurrency.bind(this);
   }
 
   componentDidMount() {
@@ -49,6 +65,8 @@ export default class Home extends Component<Props, State> {
     if (firstLoadOnLogin && loginFailed === false) {
       this.switchOffAnimation();
     }
+    eventEmitter.on('gotFiatPrice', this.updateFiatPrice);
+    eventEmitter.on('modifyCurrency', this.modifyCurrency);
   }
 
   componentWillUnmount() {
@@ -61,7 +79,21 @@ export default class Home extends Component<Props, State> {
     if (wallet) {
       session.wallet.off('transaction', this.refreshListOnNewTransaction);
     }
+    eventEmitter.off('gotFiatPrice', this.updateFiatPrice);
+    eventEmitter.off('modifyCurrency', this.modifyCurrency);
   }
+
+  modifyCurrency = (displayCurrency: string) => {
+    this.setState({
+      displayCurrency
+    });
+  };
+
+  updateFiatPrice = (fiatPrice: number) => {
+    this.setState({
+      fiatPrice
+    });
+  };
 
   switchOffAnimation() {
     session.firstLoadOnLogin = false;
@@ -118,21 +150,32 @@ export default class Home extends Component<Props, State> {
   };
 
   render() {
-    const { darkMode, transactions, totalTransactionCount } = this.state;
-    const { backgroundColor, textColor, tableMode } = uiType(darkMode);
+    const {
+      darkMode,
+      transactions,
+      totalTransactionCount,
+      fiatPrice,
+      displayCurrency,
+      fiatSymbol,
+      symbolLocation,
+      fiatDecimals
+    } = this.state;
+    const { backgroundColor, textColor, tableMode, toolTipColor } = uiType(
+      darkMode
+    );
 
     return (
       <div>
         <Redirector />
+        <Modal darkMode={darkMode} />
         <div className={`wholescreen ${backgroundColor}`}>
           <ReactTooltip
             effect="solid"
-            border
-            type="light"
+            type={toolTipColor}
             multiline
             place="top"
           />
-          <NavBar />
+          <NavBar darkMode={darkMode} />
           <div
             className={
               loginCounter.navBarCount > 0
@@ -175,20 +218,62 @@ export default class Home extends Component<Props, State> {
                       {tx[2] < 0 && (
                         <td>
                           <p className="has-text-danger has-text-right">
-                            {session.atomicToHuman(tx[2], true)}
+                            {displayCurrency === 'NINJA' &&
+                              session.atomicToHuman(tx[2], true)}
+                            {displayCurrency === 'fiat' &&
+                              symbolLocation === 'prefix' &&
+                              fiatPrice !== 0 &&
+                              `-${fiatSymbol}${(
+                                fiatPrice * session.atomicToHuman(tx[2], false)
+                              )
+                                .toFixed(fiatDecimals)
+                                .substring(1)}`}
+                            {displayCurrency === 'fiat' &&
+                              symbolLocation === 'suffix' &&
+                              fiatPrice !== 0 &&
+                              `-${(
+                                fiatPrice * session.atomicToHuman(tx[2], false)
+                              )
+                                .toFixed(2)
+                                .substring(1)}${fiatSymbol}`}
+                            {displayCurrency === 'fiat' &&
+                              fiatPrice === 0 &&
+                              ''}
                           </p>
                         </td>
                       )}
                       {tx[2] > 0 && (
                         <td>
                           <p className="has-text-right">
-                            {session.atomicToHuman(tx[2], true)}
+                            {displayCurrency === 'NINJA' &&
+                              session.atomicToHuman(tx[2], true)}
+                            {displayCurrency === 'fiat' &&
+                              symbolLocation === 'prefix' &&
+                              `${fiatSymbol}${(
+                                fiatPrice * session.atomicToHuman(tx[2], false)
+                              ).toFixed(fiatDecimals)}`}
+                            {displayCurrency === 'fiat' &&
+                              symbolLocation === 'suffix' &&
+                              `${(
+                                fiatPrice * session.atomicToHuman(tx[2], false)
+                              ).toFixed(fiatDecimals)}${fiatSymbol}`}
                           </p>
                         </td>
                       )}
                       <td>
                         <p className="has-text-right">
-                          {session.atomicToHuman(tx[3], true)}
+                          {displayCurrency === 'NINJA' &&
+                            session.atomicToHuman(tx[3], true)}
+                          {displayCurrency === 'fiat' &&
+                            symbolLocation === 'prefix' &&
+                            `${fiatSymbol}${(
+                              fiatPrice * session.atomicToHuman(tx[3], false)
+                            ).toFixed(fiatDecimals)}`}
+                          {displayCurrency === 'fiat' &&
+                            symbolLocation === 'suffix' &&
+                            `${(
+                              fiatPrice * session.atomicToHuman(tx[3], false)
+                            ).toFixed(fiatDecimals)}${fiatSymbol}`}
                         </p>
                       </td>
                     </tr>
@@ -226,7 +311,7 @@ export default class Home extends Component<Props, State> {
               </form>
             )}
           </div>
-          <BottomBar />
+          <BottomBar darkMode={darkMode} />
         </div>
       </div>
     );

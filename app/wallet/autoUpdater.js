@@ -1,4 +1,8 @@
 // @flow
+//
+// Copyright (C) 2019 ExtraHash
+//
+// Please see the included LICENSE file for more information.
 import request from 'request-promise';
 import log from 'electron-log';
 import semver from 'semver';
@@ -16,7 +20,7 @@ export default class AutoUpdater {
       log.debug('Checking for updates...');
       const options = {
         method: 'GET',
-        url: ``,
+        url: `https://api.getproton.org/latest/${operatingSystem}/${currentVersion}/${arch}`,
         json: true
       };
       request(options, (error, response, body) => {

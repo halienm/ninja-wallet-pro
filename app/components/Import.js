@@ -1,4 +1,8 @@
 // @flow
+//
+// Copyright (C) 2019 ExtraHash
+//
+// Please see the included LICENSE file for more information.
 import { remote } from 'electron';
 import fs from 'fs';
 import React, { Component } from 'react';
@@ -6,6 +10,7 @@ import log from 'electron-log';
 import NavBar from './NavBar';
 import BottomBar from './BottomBar';
 import Redirector from './Redirector';
+import Modal from './Modal';
 import uiType from '../utils/uitype';
 import {
   config,
@@ -33,15 +38,19 @@ export default class Send extends Component<Props, States> {
     this.state = {
       darkMode: session.darkMode
     };
+    this.handleSubmit = this.handleSubmit.bind(this);
   }
 
   componentDidMount() {}
 
   componentWillUnmount() {}
 
-  handleSubmit(event: any) {
+  handleSubmit = (event: any) => {
     // We're preventing the default refresh of the page that occurs on form submit
     event.preventDefault();
+
+    const { darkMode } = this.state;
+    const { textColor } = uiType(darkMode);
 
     const seed = event.target[0].value;
     let height = event.target[1].value;
@@ -61,12 +70,20 @@ export default class Send extends Component<Props, States> {
     }
     session.saveWallet(session.walletFile);
     if (savedInInstallDir(savePath)) {
-      remote.dialog.showMessageBox(null, {
-        type: 'error',
-        buttons: ['OK'],
-        title: il8n.import_save_wallet_title,
-        message: il8n.import_save_wallet_message
-      });
+      const message = (
+        <div>
+          <center>
+            <p className="title has-text-danger">Restore Error!</p>
+          </center>
+          <br />
+          <p className={`subtitle ${textColor}`}>
+            You can not save the wallet in the installation directory. The
+            windows installer will delete all files in the directory upon
+            upgrading the application, so it is not allowed.
+          </p>
+        </div>
+      );
+      eventEmitter.emit('openModal', message, 'OK', null, null);
       return;
     }
     const importedSuccessfully = session.handleImportFromSeed(
@@ -75,12 +92,6 @@ export default class Send extends Component<Props, States> {
       parseInt(height, 10)
     );
     if (importedSuccessfully === true) {
-      remote.dialog.showMessageBox(null, {
-        type: 'info',
-        buttons: ['OK'],
-        title: il8n.import_import_wallet_title,
-        message: il8n.import_import_wallet_message
-      });
       loginCounter.freshRestore = true;
       const programDirectory = directories[0];
       const modifyConfig = config;
@@ -98,14 +109,21 @@ export default class Send extends Component<Props, States> {
       log.debug('Wrote config file to disk.');
       eventEmitter.emit('initializeNewSession');
     } else {
-      remote.dialog.showMessageBox(null, {
-        type: 'error',
-        buttons: [il8n.ok],
-        title: il8n.import_import_wallet_error_title,
-        message: il8n.import_import_wallet_error_message
-      });
+      const message = (
+        <div>
+          <center>
+            <p className="title has-text-danger">Restore Error!</p>
+          </center>
+          <br />
+          <p className={`subtitle ${textColor}`}>
+            The restore was not successful. Please check your details and try
+            again.
+          </p>
+        </div>
+      );
+      eventEmitter.emit('openModal', message, 'OK', null, null);
     }
-  }
+  };
 
   render() {
     const { darkMode } = this.state;
@@ -114,8 +132,9 @@ export default class Send extends Component<Props, States> {
     return (
       <div>
         <Redirector />
+        <Modal darkMode={darkMode} />
         <div className={`wholescreen ${backgroundColor}`}>
-          <NavBar />
+          <NavBar darkMode={darkMode} />
           <div className={`maincontent ${backgroundColor}`}>
             <form onSubmit={this.handleSubmit}>
               <div className="field">
@@ -152,7 +171,7 @@ export default class Send extends Component<Props, States> {
               </div>
             </form>
           </div>
-          <BottomBar />
+          <BottomBar darkMode={darkMode} />
         </div>
       </div>
     );

@@ -1,4 +1,8 @@
 // @flow
+//
+// Copyright (C) 2019 ExtraHash
+//
+// Please see the included LICENSE file for more information.
 import React, { Component } from 'react';
 import QRCode from 'qrcode.react';
 import ReactTooltip from 'react-tooltip';
@@ -6,6 +10,7 @@ import { session, il8n } from '../index';
 import NavBar from './NavBar';
 import BottomBar from './BottomBar';
 import Redirector from './Redirector';
+import Modal from './Modal';
 import uiType from '../utils/uitype';
 
 type Props = {
@@ -21,34 +26,47 @@ export default class Receive extends Component<Props, State> {
 
   state: State;
 
+  ref: any;
+
   constructor(props?: Props) {
     super(props);
     this.state = {
       darkMode: session.darkMode
     };
+    this.handleCopiedTip = this.handleCopiedTip.bind(this);
+    this.ref = null;
   }
 
   componentDidMount() {}
 
   componentWillUnmount() {}
 
+  handleCopiedTip = () => {
+    ReactTooltip.show(this.ref);
+    setTimeout(() => {
+      ReactTooltip.hide(this.ref);
+    }, 500);
+  };
+
   render() {
     const { copyToClipboard } = this.props;
     const { darkMode } = this.state;
-    const { backgroundColor, textColor } = uiType(darkMode);
+    const { backgroundColor, textColor, toolTipColor } = uiType(darkMode);
+
+    const copiedTip = 'Copied!';
 
     return (
       <div>
         <Redirector />
+        <Modal darkMode={darkMode} />
         <div className={`wholescreen ${backgroundColor}`}>
           <ReactTooltip
-            effect="solid"
-            border
-            type="light"
+            type={toolTipColor}
             multiline
             place="top"
+            effect="solid"
           />
-          <NavBar />
+          <NavBar darkMode={darkMode} />
           <div className={`maincontent ${backgroundColor}`}>
             <div className="columns">
               <div className="column is-three-quarters">
@@ -70,11 +88,22 @@ export default class Receive extends Component<Props, State> {
                   <div className="field">
                     <div className="buttons">
                       <button
+                        // eslint-disable-next-line no-return-assign
+                        ref={ref => (this.ref = ref)}
                         type="button"
                         className="button is-success is-large"
-                        onClick={() => copyToClipboard(session.address)}
+                        onClick={() => {
+                          copyToClipboard(session.address);
+                          this.handleCopiedTip();
+                        }}
+                        data-tip={copiedTip}
+                        data-event="none"
+                        data-effect="float"
                       >
-                        {il8n.copy_to_clipboard}
+                        <span className="icon is-small">
+                          <i className="fa fa-clipboard" />
+                        </span>
+                        &nbsp;&nbsp;{il8n.copy_to_clipboard}
                       </button>
                     </div>
                   </div>
@@ -101,7 +130,7 @@ export default class Receive extends Component<Props, State> {
               </div>
             </div>
           </div>
-          <BottomBar />
+          <BottomBar darkMode={darkMode} />
         </div>
       </div>
     );

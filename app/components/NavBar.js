@@ -1,9 +1,13 @@
 // @flow
+//
+// Copyright (C) 2019 ExtraHash
+//
+// Please see the included LICENSE file for more information.
 
 import React, { Component } from 'react';
 import { Link, withRouter } from 'react-router-dom';
 import routes from '../constants/routes';
-import { session, eventEmitter, il8n, loginCounter } from '../index';
+import { session, eventEmitter, il8n, loginCounter, config } from '../index';
 import uiType from '../utils/uitype';
 
 type Location = {
@@ -13,11 +17,11 @@ type Location = {
 };
 
 type Props = {
-  location: Location
+  location: Location,
+  darkMode: boolean
 };
 
 type State = {
-  darkMode: boolean,
   navBarCount: number
 };
 
@@ -31,17 +35,12 @@ class NavBar extends Component<Props, State> {
   constructor(props?: Props) {
     super(props);
     this.state = {
-      darkMode: session.darkMode,
       navBarCount: loginCounter.navBarCount
     };
-    this.darkModeOn = this.darkModeOn.bind(this);
-    this.darkModeOff = this.darkModeOff.bind(this);
     this.logOut = this.logOut.bind(this);
   }
 
   componentDidMount() {
-    eventEmitter.on('darkmodeon', this.darkModeOn);
-    eventEmitter.on('darkmodeoff', this.darkModeOff);
     loginCounter.navBarCount++;
   }
 
@@ -49,21 +48,7 @@ class NavBar extends Component<Props, State> {
     if (session.walletPassword !== '') {
       clearInterval(this.activityTimer);
     }
-    eventEmitter.off('darkmodeon', this.darkModeOn);
-    eventEmitter.off('darkmodeoff', this.darkModeOff);
   }
-
-  darkModeOn = () => {
-    this.setState({
-      darkMode: true
-    });
-  };
-
-  darkModeOff = () => {
-    this.setState({
-      darkMode: false
-    });
-  };
 
   logOut = () => {
     eventEmitter.emit('logOut');
@@ -71,9 +56,10 @@ class NavBar extends Component<Props, State> {
 
   render() {
     // prettier-ignore
-    const { location: { pathname } } = this.props;
-    const { darkMode, navBarCount } = this.state;
+    const { location: { pathname }, darkMode } = this.props;
+    const { navBarCount } = this.state;
     const { fillColor, elementBaseColor, settingsCogColor } = uiType(darkMode);
+    const { useLocalDaemon } = config;
 
     return (
       <div>
@@ -95,7 +81,7 @@ class NavBar extends Component<Props, State> {
                   <div className="navbar-item">
                     <img
                       src="images/icon_color_64x64.png"
-                      alt="coin ninja wallet pro logo in orange"
+                      alt="proton wallet logo in green"
                     />
                   </div>
                 </div>
@@ -103,7 +89,9 @@ class NavBar extends Component<Props, State> {
                   <Link to={routes.HOME} className="navbar-item">
                     <i className="fa fa-credit-card" />
                     {pathname === '/' && (
-                      <strong>&nbsp;&nbsp;{il8n.wallet}</strong>
+                      <p className="sans">
+                        <strong>&nbsp;&nbsp;{il8n.wallet}</strong>
+                      </p>
                     )}
                     {pathname !== '/' && <p>&nbsp;&nbsp;{il8n.wallet}</p>}
                   </Link>
@@ -125,6 +113,15 @@ class NavBar extends Component<Props, State> {
                       <p>&nbsp;&nbsp;{il8n.receive}</p>
                     )}
                   </Link>
+                  {useLocalDaemon && (
+                    <Link className="navbar-item" to={routes.TERMINAL}>
+                      <i className="fas fa-terminal" />
+                      {pathname === '/terminal' && (
+                        <strong>&nbsp;&nbsp;Terminal</strong>
+                      )}
+                      {pathname !== '/terminal' && <p>&nbsp;&nbsp;Terminal</p>}
+                    </Link>
+                  )}
                 </div>
                 <div className="navbar-end">
                   {session.walletPassword !== '' && (

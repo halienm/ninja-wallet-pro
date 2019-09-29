@@ -1,4 +1,8 @@
 // @flow
+//
+// Copyright (C) 2019 ExtraHash
+//
+// Please see the included LICENSE file for more information.
 import { remote } from 'electron';
 import fs from 'fs';
 import React, { Component } from 'react';
@@ -33,15 +37,19 @@ export default class Send extends Component<Props, State> {
     this.state = {
       darkMode: session.darkMode
     };
+    this.handleSubmit = this.handleSubmit.bind(this);
   }
 
   componentDidMount() {}
 
   componentWillUnmount() {}
 
-  handleSubmit(event: any) {
+  handleSubmit = (event: any) => {
     // We're preventing the default refresh of the page that occurs on form submit
     event.preventDefault();
+
+    const { darkMode } = this.state;
+    const { textColor } = uiType(darkMode);
 
     const spendKey = event.target[0].value;
     const viewKey = event.target[1].value;
@@ -62,12 +70,20 @@ export default class Send extends Component<Props, State> {
     }
     session.saveWallet(session.walletFile);
     if (savedInInstallDir(savePath)) {
-      remote.dialog.showMessageBox(null, {
-        type: 'error',
-        buttons: [il8n.ok],
-        title: il8n.import_save_wallet_title,
-        message: il8n.import_save_wallet_message
-      });
+      const message = (
+        <div>
+          <center>
+            <p className="title has-text-danger">Restore Error!</p>
+          </center>
+          <br />
+          <p className={`subtitle ${textColor}`}>
+            You can not save the wallet in the installation directory. The
+            windows installer will delete all files in the directory upon
+            upgrading the application, so it is not allowed.
+          </p>
+        </div>
+      );
+      eventEmitter.emit('openModal', message, 'OK', null, null);
       return;
     }
     const importedSuccessfully = session.handleImportFromKey(
@@ -77,12 +93,6 @@ export default class Send extends Component<Props, State> {
       parseInt(height, 10)
     );
     if (importedSuccessfully === true) {
-      remote.dialog.showMessageBox(null, {
-        type: 'info',
-        buttons: ['OK'],
-        title: il8n.import_import_wallet_title,
-        message: il8n.import_import_wallet_message
-      });
       const programDirectory = directories[0];
       const modifyConfig = config;
       modifyConfig.walletFile = savePath;
@@ -100,14 +110,21 @@ export default class Send extends Component<Props, State> {
       loginCounter.freshRestore = true;
       eventEmitter.emit('initializeNewSession');
     } else {
-      remote.dialog.showMessageBox(null, {
-        type: 'error',
-        buttons: [il8n.ok],
-        title: il8n.import_import_wallet_error_title,
-        message: il8n.import_import_wallet_error_message
-      });
+      const message = (
+        <div>
+          <center>
+            <p className="title has-text-danger">Restore Error!</p>
+          </center>
+          <br />
+          <p className={`subtitle ${textColor}`}>
+            The restore was not successful. Please check your details and try
+            again.
+          </p>
+        </div>
+      );
+      eventEmitter.emit('openModal', message, 'OK', null, null);
     }
-  }
+  };
 
   render() {
     const { darkMode } = this.state;
@@ -117,7 +134,7 @@ export default class Send extends Component<Props, State> {
       <div>
         <Redirector />
         <div className={`wholescreen ${backgroundColor}`}>
-          <NavBar />
+          <NavBar darkMode={darkMode} />
           <div className={`maincontent ${backgroundColor}`}>
             <form onSubmit={this.handleSubmit}>
               <div className="field">
@@ -169,7 +186,7 @@ export default class Send extends Component<Props, State> {
               </div>
             </form>
           </div>
-          <BottomBar />
+          <BottomBar darkMode={darkMode} />
         </div>
       </div>
     );

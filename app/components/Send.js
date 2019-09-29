@@ -1,14 +1,19 @@
 // @flow
+//
+// Copyright (C) 2019 ExtraHash
+//
+// Please see the included LICENSE file for more information.
 import crypto from 'crypto';
-import { remote } from 'electron';
+import isDev from 'electron-is-dev';
+import log from 'electron-log';
 import React, { Component } from 'react';
 import { Redirect } from 'react-router-dom';
 import ReactTooltip from 'react-tooltip';
-import log from 'electron-log';
-import { session, eventEmitter, il8n } from '../index';
+import { session, eventEmitter, il8n, config, loginCounter } from '../index';
 import NavBar from './NavBar';
 import BottomBar from './BottomBar';
 import Redirector from './Redirector';
+import Modal from './Modal';
 import uiType from '../utils/uitype';
 
 type Props = {};
@@ -20,7 +25,14 @@ type State = {
   paymentID: string,
   darkMode: boolean,
   transactionInProgress: boolean,
-  transactionComplete: boolean
+  transactionComplete: boolean,
+  displayCurrency: string,
+  fiatPrice: number,
+  fiatSymbol: string,
+  symbolLocation: string,
+  sendToAddress: string,
+  loopTest: boolean,
+  looping: boolean
 };
 
 export default class Send extends Component<Props, State> {
@@ -28,16 +40,25 @@ export default class Send extends Component<Props, State> {
 
   state: State;
 
+  loopInterval: IntervalID | null;
+
   constructor(props?: Props) {
     super(props);
     this.state = {
       unlockedBalance: session.getUnlockedBalance(),
       enteredAmount: '',
       totalAmount: '',
+      sendToAddress: '',
       paymentID: '',
       darkMode: session.darkMode,
       transactionInProgress: false,
-      transactionComplete: false
+      transactionComplete: false,
+      displayCurrency: config.displayCurrency,
+      fiatPrice: session.fiatPrice,
+      fiatSymbol: config.fiatSymbol,
+      symbolLocation: config.symbolLocation,
+      loopTest: loginCounter.loopTest,
+      looping: loginCounter.looping
     };
     this.transactionComplete = this.transactionComplete.bind(this);
     this.generatePaymentID = this.generatePaymentID.bind(this);
@@ -50,19 +71,48 @@ export default class Send extends Component<Props, State> {
     this.handleTotalAmountChange = this.handleTotalAmountChange.bind(this);
     this.sendAll = this.sendAll.bind(this);
     this.handlePaymentIDChange = this.handlePaymentIDChange.bind(this);
+    this.updateFiatPrice = this.updateFiatPrice.bind(this);
+    this.handleSendToAddressChange = this.handleSendToAddressChange.bind(this);
+    this.confirmTransaction = this.confirmTransaction.bind(this);
+    this.toggleLoopTest = this.toggleLoopTest.bind(this);
+    this.loopInterval = null;
   }
 
   componentDidMount() {
     eventEmitter.on('transactionComplete', this.transactionComplete);
     eventEmitter.on('transactionInProgress', this.handleTransactionInProgress);
     eventEmitter.on('transactionCancel', this.handleTransactionCancel);
+    eventEmitter.on('gotFiatPrice', this.updateFiatPrice);
+    eventEmitter.on('modifyCurrency', this.modifyCurrency);
+    eventEmitter.on('confirmTransaction', this.sendTransaction);
   }
 
   componentWillUnmount() {
+    const { looping } = this.state;
     eventEmitter.off('transactionComplete', this.transactionComplete);
     eventEmitter.off('transactionInProgress', this.handleTransactionInProgress);
     eventEmitter.off('transactionCancel', this.handleTransactionCancel);
+    eventEmitter.off('gotFiatPrice', this.updateFiatPrice);
+    eventEmitter.off('modifyCurrency', this.modifyCurrency);
+    eventEmitter.off('confirmTransaction', this.sendTransaction);
+    if (looping) {
+      clearInterval(this.loopInterval);
+      loginCounter.looping = false;
+    }
   }
+
+  modifyCurrency = (displayCurrency: string) => {
+    this.setState({
+      displayCurrency
+    });
+    this.resetAmounts();
+  };
+
+  updateFiatPrice = (fiatPrice: number) => {
+    this.setState({
+      fiatPrice
+    });
+  };
 
   handleTransactionInProgress = () => {
     this.setState({
@@ -84,6 +134,7 @@ export default class Send extends Component<Props, State> {
   };
 
   handleAmountChange = (event: any) => {
+    const { displayCurrency, fiatPrice } = this.state;
     let enteredAmount = event.target.value;
     if (enteredAmount === '') {
       this.setState({
@@ -101,14 +152,23 @@ export default class Send extends Component<Props, State> {
       return;
     }
 
+    const fee = displayCurrency === 'NINJA' ? 0.1 : 0.1 * fiatPrice;
+
     const totalAmount = (
       parseFloat(enteredAmount) +
-      0.1 +
+      fee +
       parseFloat(session.daemon.feeAmount / 100)
     ).toFixed(2);
     this.setState({
       enteredAmount,
       totalAmount
+    });
+  };
+
+  handleSendToAddressChange = (event: any) => {
+    const sendToAddress = event.target.value;
+    this.setState({
+      sendToAddress
     });
   };
 
@@ -144,113 +204,208 @@ export default class Send extends Component<Props, State> {
     });
   };
 
-  async handleSubmit(event: any) {
-    // We're preventing the default refresh of the page that occurs on form submit
+  confirmTransaction = (event: any) => {
     event.preventDefault();
+    const { sendToAddress, totalAmount, paymentID, darkMode } = this.state;
+    const { textColor } = uiType(darkMode);
+    const sufficientFunds =
+      (session.getUnlockedBalance() + session.getLockedBalance()) / 100 >=
+      Number(totalAmount);
+
+    const sufficientUnlockedFunds =
+      session.getUnlockedBalance() > Number(totalAmount) / 100;
+
+    if (sendToAddress === '' || totalAmount === '') {
+      return;
+    }
+
+    if (!sufficientFunds) {
+      const message = (
+        <div>
+          <center>
+            <p className="title has-text-danger">Error!</p>
+          </center>
+          <br />
+          <p className={`subtitle ${textColor}`}>
+            The transaction was not successful. You don&apos;t have enough
+            funds!
+          </p>
+        </div>
+      );
+      eventEmitter.emit('openModal', message, 'OK', null, 'transactionCancel');
+      return;
+    }
+
+    if (!sufficientUnlockedFunds) {
+      const message = (
+        <div>
+          <center>
+            <p className="title has-text-danger">Error!</p>
+          </center>
+          <br />
+          <p className={`subtitle ${textColor}`}>
+            The transaction was not successful.
+          </p>
+          <p className={`subtitle ${textColor}`}>
+            You don&apos;t have enough unlocked funds! Wait until your funds
+            unlock then try again.
+          </p>
+        </div>
+      );
+      eventEmitter.emit('openModal', message, 'OK', null, 'transactionCancel');
+      return;
+    }
+
+    const message = (
+      <div>
+        <center>
+          <p className={`title ${textColor}`}>Confirm Transaction</p>
+        </center>
+        <br />
+        <p className={`subtitle ${textColor}`}>
+          <b>Send to:</b>
+          <br />
+          {sendToAddress}
+        </p>
+        <p className={`subtitle ${textColor}`}>
+          <b>Amount (w/ fee):</b>
+          <br />
+          {totalAmount}
+        </p>
+        {paymentID !== '' && (
+          <p className={`subtitle ${textColor}`}>
+            <b>Payment ID:</b>
+            <br />
+            {paymentID}
+          </p>
+        )}
+      </div>
+    );
+    eventEmitter.emit(
+      'openModal',
+      message,
+      'Send it!',
+      'Wait a minute...',
+      'confirmTransaction'
+    );
+  };
+
+  sendTransaction = async () => {
+    const { loopTest } = this.state;
 
     eventEmitter.emit('transactionInProgress');
 
-    const [sendToAddress, amount, paymentID, fee] = [
-      event.target[0].value.trim(), // sendToAddress
-      session.humanToAtomic(event.target[1].value) || 0, // amount
-      event.target[3].value || undefined // paymentID
-    ];
-
-    if (sendToAddress === '' || amount === '') {
-      eventEmitter.emit('transactionCancel');
-      return;
-    }
-
     const notSynced = session.getSyncStatus() < 99.99;
-
-    if (notSynced) {
-      remote.dialog.showMessageBox(null, {
-        type: 'warning',
-        buttons: [il8n.cancel, il8n.ok],
-        title: 'Wallet Not Synced',
-        message:
-          'You are attempting to send a transaction without being synced with the network. This may fail. Would you like to attempt this?'
-      });
-    }
-
-    let displayIfPaymentID;
-
-    if (paymentID !== '' && paymentID !== undefined) {
-      displayIfPaymentID = ` with a payment ID of ${paymentID}`;
-    } else {
-      displayIfPaymentID = '';
-    }
-
-    let displayIfNodeFee;
-
-    if (session.daemon.feeAmount > 0) {
-      displayIfNodeFee = `and a node fee of ${session.atomicToHuman(
-        session.daemon.feeAmount
-      )} ${session.wallet.config.ticker}`;
-    } else {
-      displayIfNodeFee = '';
-    }
-
-    const totalTransactionAmount = session.atomicToHuman(
-      parseInt(amount, 10) + 10 + parseInt(session.daemon.feeAmount, 10)
-    );
-
-    const userSelection = remote.dialog.showMessageBox(null, {
-      type: 'warning',
-      buttons: [il8n.cancel, il8n.ok],
-      title: il8n.title_please_confirm_transaction,
-      message: `${il8n.about_to_send_1} ${totalTransactionAmount} ${
-        session.wallet.config.ticker
-      } ${il8n.to} ${sendToAddress} ${displayIfPaymentID} ${displayIfNodeFee} ${
-        il8n.about_to_send_2
-      }`
-    });
-
-    if (userSelection !== 1) {
-      log.debug('Transaction cancelled by user.');
-      eventEmitter.emit('transactionCancel');
-      return;
-    }
+    const { sendToAddress, enteredAmount, paymentID, darkMode } = this.state;
+    const { textColor } = uiType(darkMode);
 
     const [hash, err] = await session.sendTransaction(
       sendToAddress,
-      amount,
-      paymentID,
-      fee
+      Number(enteredAmount) * 100,
+      paymentID
     );
-    if (hash) {
-      remote.dialog.showMessageBox(null, {
-        type: 'info',
-        buttons: [il8n.ok],
-        title: il8n.send_tx_complete_title,
-        message: `${il8n.send_tx_complete} ${hash}`
-      });
-      eventEmitter.emit('transactionComplete');
-    } else if (err) {
-      if (notSynced) {
-        remote.dialog.showMessageBox(null, {
-          type: 'warning',
-          buttons: [il8n.cancel, il8n.ok],
-          title: 'Transaction Attempt Failed',
-          message:
-            "You aren't synced with the network, and the transaction failed to send. Please allow the wallet to sync before attempting again."
-        });
-      } else {
-        remote.dialog.showMessageBox(null, {
-          type: 'error',
-          buttons: [il8n.ok],
-          title: il8n.send_tx_error_title,
-          message: err.toString()
-        });
+    if (!loopTest) {
+      if (hash) {
+        const message = (
+          <div>
+            <center>
+              <p className={`title ${textColor}`}>Success!</p>
+            </center>
+            <br />
+            <p className={`subtitle ${textColor}`}>
+              Transaction succeeded! Transaction hash:
+            </p>
+            <p className={`subtitle ${textColor}`}>{hash}</p>
+          </div>
+        );
+        eventEmitter.emit(
+          'openModal',
+          message,
+          'OK',
+          null,
+          'transactionCancel'
+        );
+        this.resetPaymentID();
+      } else if (err) {
+        if (notSynced) {
+          const message = (
+            <div>
+              <center>
+                <p className="title has-text-danger">Error!</p>
+              </center>
+              <br />
+              <p className={`subtitle ${textColor}`}>
+                The transaction was not successful. The wallet isn&apos;t
+                synced. Wait until you are synced and try again.
+              </p>
+            </div>
+          );
+          eventEmitter.emit(
+            'openModal',
+            message,
+            'OK',
+            null,
+            'transactionCancel'
+          );
+        } else {
+          const message = (
+            <div>
+              <center>
+                <p className="title has-text-danger">Error!</p>
+              </center>
+              <br />
+              <p className={`subtitle ${textColor}`}>
+                The transaction was not successful.
+              </p>
+              <p className={`subtitle ${textColor}`}>{err.toString()}</p>
+            </div>
+            // eslint-disable-next-line prettier/prettier
+          );
+          eventEmitter.emit(
+            'openModal',
+            message,
+            'OK',
+            null,
+            'transactionCancel'
+          );
+        }
       }
-      eventEmitter.emit('transactionCancel');
     }
-  }
+    eventEmitter.emit('transaction');
+    eventEmitter.emit('transactionCancel');
+  };
+
+  createTestTransaction = async () => {
+    const { loopTest, looping } = this.state;
+
+    log.debug('Creating test transaction for you.');
+    const sendToAddress = await session.wallet.getPrimaryAddress();
+    const amount = Math.floor(Math.random() * 100) + 1;
+    const paymentID = this.generatePaymentID();
+
+    await this.setState({
+      enteredAmount: String(amount / 100),
+      totalAmount: String((amount + 10) / 100),
+      sendToAddress,
+      paymentID
+    });
+
+    if (loopTest && !looping) {
+      loginCounter.looping = true;
+      this.setState({
+        looping: true
+      });
+      this.loopInterval = setInterval(this.createTestTransaction, 1000);
+    }
+
+    this.sendTransaction();
+  };
 
   generatePaymentID = () => {
     const paymentID = crypto.randomBytes(32).toString('hex');
     log.debug(`Generated paymentID: ${paymentID}`);
     this.setState({ paymentID });
+    return paymentID;
   };
 
   handlePaymentIDChange = (event: any) => {
@@ -258,11 +413,21 @@ export default class Send extends Component<Props, State> {
   };
 
   resetPaymentID = () => {
-    this.setState({ paymentID: '', enteredAmount: '', totalAmount: '' });
+    this.setState({
+      paymentID: '',
+      enteredAmount: '',
+      totalAmount: '',
+      sendToAddress: ''
+    });
+  };
+
+  resetAmounts = () => {
+    this.setState({ enteredAmount: '', totalAmount: '' });
   };
 
   sendAll = () => {
-    const { unlockedBalance } = this.state;
+    const { unlockedBalance, fiatPrice, displayCurrency } = this.state;
+
     const totalAmount =
       unlockedBalance - 10 - parseInt(session.daemon.feeAmount, 10) <= 0
         ? 0
@@ -272,10 +437,35 @@ export default class Send extends Component<Props, State> {
         ? 0
         : totalAmount - 10 - parseInt(session.daemon.feeAmount, 10);
     this.setState({
-      totalAmount: session.atomicToHuman(totalAmount, false),
-      enteredAmount: session.atomicToHuman(enteredAmount, false)
+      totalAmount:
+        displayCurrency === 'NINJA'
+          ? session.atomicToHuman(totalAmount, false).toString()
+          : session.atomicToHuman(totalAmount * fiatPrice, false).toString(),
+      enteredAmount:
+        displayCurrency === 'NINJA'
+          ? session.atomicToHuman(enteredAmount, false).toString()
+          : session.atomicToHuman(enteredAmount * fiatPrice, false).toString()
     });
   };
+
+  toggleLoopTest = () => {
+    const { loopTest, looping } = this.state;
+    if (looping) {
+      clearInterval(this.loopInterval);
+      loginCounter.looping = false;
+      this.setState({
+        looping: false
+      });
+    }
+    loginCounter.loopTest = !loopTest;
+    this.setState({
+      loopTest: !loopTest
+    });
+  };
+
+  roundDown(x: number) {
+    return Math.floor(x * 100) / 100;
+  }
 
   render() {
     const {
@@ -284,12 +474,25 @@ export default class Send extends Component<Props, State> {
       enteredAmount,
       totalAmount,
       paymentID,
-      transactionInProgress
+      transactionInProgress,
+      displayCurrency,
+      fiatSymbol,
+      symbolLocation,
+      sendToAddress,
+      loopTest,
+      looping
     } = this.state;
 
-    const { backgroundColor, textColor, elementBaseColor, linkColor } = uiType(
-      darkMode
-    );
+    const exampleAmount =
+      symbolLocation === 'prefix' ? `${fiatSymbol}100` : `100${fiatSymbol}`;
+
+    const {
+      backgroundColor,
+      textColor,
+      elementBaseColor,
+      linkColor,
+      toolTipColor
+    } = uiType(darkMode);
 
     if (transactionComplete === true) {
       return <Redirect to="/" />;
@@ -298,17 +501,17 @@ export default class Send extends Component<Props, State> {
     return (
       <div>
         <Redirector />
+        <Modal darkMode={darkMode} />
         <div className={`wholescreen ${backgroundColor}`}>
           <ReactTooltip
             effect="solid"
-            border
-            type="light"
+            type={toolTipColor}
             multiline
             place="top"
           />
-          <NavBar />
+          <NavBar darkMode={darkMode} />
           <div className={`maincontent ${backgroundColor}`}>
-            <form onSubmit={this.handleSubmit}>
+            <form onSubmit={this.confirmTransaction}>
               <div className="field">
                 <label className={`label ${textColor}`} htmlFor="address">
                   {il8n.send_to_address}
@@ -317,6 +520,8 @@ export default class Send extends Component<Props, State> {
                       className="input is-large"
                       type="text"
                       placeholder={il8n.send_to_address_input_placeholder}
+                      value={sendToAddress}
+                      onChange={this.handleSendToAddressChange}
                     />
                   </div>
                 </label>
@@ -330,9 +535,11 @@ export default class Send extends Component<Props, State> {
                         <input
                           className="input is-large"
                           type="text"
-                          placeholder={`How much ${
-                            session.wallet.config.ticker
-                          } to send (eg. 100)`}
+                          placeholder={`How much to send (eg. ${
+                            displayCurrency === 'fiat'
+                              ? exampleAmount
+                              : '100 NINJA'
+                          })`}
                           value={enteredAmount}
                           onChange={this.handleAmountChange}
                         />
@@ -342,6 +549,7 @@ export default class Send extends Component<Props, State> {
                           role="button"
                           tabIndex={0}
                           className={linkColor}
+                          onMouseDown={event => event.preventDefault()}
                         >
                           {il8n.send_all}
                         </a>
@@ -382,6 +590,7 @@ export default class Send extends Component<Props, State> {
                       role="button"
                       tabIndex={0}
                       className={linkColor}
+                      onMouseDown={event => event.preventDefault()}
                     >
                       {il8n.generate_payment_id}
                     </a>
@@ -391,15 +600,22 @@ export default class Send extends Component<Props, State> {
               <div className="buttons">
                 {!transactionInProgress && (
                   <button type="submit" className="button is-success is-large">
-                    {il8n.send}
+                    <span className="icon is-small">
+                      <i className="fa fa-paper-plane" />
+                    </span>
+                    &nbsp;&nbsp;{il8n.send}
                   </button>
                 )}
                 {transactionInProgress && (
                   <button
                     type="submit"
-                    className="button is-success is-large is-loading is-disabled"
+                    className="button is-success is-large is-loading"
+                    disabled
                   >
-                    {il8n.send}
+                    <span className="icon is-small">
+                      <i className="fa fa-paper-plane" />
+                    </span>
+                    &nbsp;&nbsp;{il8n.send}
                   </button>
                 )}
 
@@ -408,12 +624,83 @@ export default class Send extends Component<Props, State> {
                   className={`button is-large ${elementBaseColor}`}
                   onClick={this.resetPaymentID}
                 >
-                  {il8n.clear}
+                  <span className="icon is-small">
+                    <i className="fa fa-undo" />
+                  </span>
+                  &nbsp;&nbsp;{il8n.clear}
                 </button>
+                {isDev && (
+                  <div>
+                    <a
+                      className="button is-warning is-large"
+                      onClick={this.createTestTransaction}
+                      onKeyPress={this.createTestTransaction}
+                      role="button"
+                      tabIndex={0}
+                      type="action"
+                      onMouseDown={event => event.preventDefault()}
+                      disabled={looping}
+                    >
+                      <span className="icon is-small">
+                        <i className="fa fa-flask" />
+                      </span>
+                      &nbsp;&nbsp;Test
+                    </a>
+                    {loopTest === true && looping === true && (
+                      <span className={textColor}>
+                        <a
+                          className="button is-primary is-large"
+                          onClick={this.toggleLoopTest}
+                          onKeyPress={this.toggleLoopTest}
+                          role="button"
+                          tabIndex={0}
+                        >
+                          <span className="icon is-large">
+                            <i className="fas fa-sync fa-spin" />
+                          </span>
+                        </a>
+                        &nbsp;&nbsp; Looping in progress. Click to disable.
+                      </span>
+                    )}
+
+                    {loopTest === true && looping === false && (
+                      <span className={textColor}>
+                        <a
+                          className="button is-success is-large"
+                          onClick={this.toggleLoopTest}
+                          onKeyPress={this.toggleLoopTest}
+                          role="button"
+                          tabIndex={0}
+                        >
+                          <span className="icon is-large">
+                            <i className="fas fa-check" />
+                          </span>
+                        </a>
+                        &nbsp;&nbsp; Loop Test: <b>on</b>
+                      </span>
+                    )}
+                    {loopTest === false && (
+                      <span className={textColor}>
+                        <a
+                          className="button is-danger is-large"
+                          onClick={this.toggleLoopTest}
+                          onKeyPress={this.toggleLoopTest}
+                          role="button"
+                          tabIndex={0}
+                        >
+                          <span className="icon is-large">
+                            <i className="fas fa-times" />
+                          </span>
+                        </a>
+                        &nbsp;&nbsp; Loop Test: <b>off</b>
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             </form>
           </div>
-          <BottomBar />
+          <BottomBar darkMode={darkMode} />
         </div>
       </div>
     );

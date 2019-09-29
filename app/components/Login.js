@@ -1,7 +1,13 @@
 // @flow
+//
+// Copyright (C) 2019 ExtraHash
+//
+// Please see the included LICENSE file for more information.
 import React, { Component } from 'react';
 import { session, eventEmitter, loginCounter, il8n } from '../index';
 import Redirector from './Redirector';
+import SyncReminder from './SyncReminder';
+import Modal from './Modal';
 import uiType from '../utils/uitype';
 
 type Props = {};
@@ -69,6 +75,7 @@ export default class Login extends Component<Props, State> {
     return (
       <div>
         <Redirector />
+        <Modal darkMode={darkMode} />
         <div className={`fullwindow outer-div ${backgroundColor}`}>
           <div className="mid-div">
             <div
@@ -96,14 +103,31 @@ export default class Login extends Component<Props, State> {
                     </div>
                   </label>
                   <label className={`help ${textColor}`} htmlFor="scanheight">
-                    {il8n.attempting_login_to}
-                    {walletFile}
+                    {session.wallet
+                      ? il8n.currently_logged_in
+                      : il8n.attempting_login_to}
+                    <b>{walletFile}</b>
                   </label>
                 </div>
-                <div className="buttons is-right">
-                  <button type="submit" className="button is-success is-large">
-                    {il8n.login}
-                  </button>
+                <div className="columns">
+                  <div className="column">
+                    {session.wallet && (
+                      <SyncReminder
+                        className="syncreminder"
+                        darkMode={darkMode}
+                      />
+                    )}
+                  </div>
+                  <div className="column">
+                    <div className="buttons is-right">
+                      <button
+                        type="submit"
+                        className="button is-success is-large"
+                      >
+                        {session.wallet ? il8n.unlock : il8n.login}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </form>
             </div>

@@ -1,5 +1,11 @@
-/* eslint-disable global-require */
+// @flow
+//
+// Copyright (C) 2019 ExtraHash
+//
+// Please see the included LICENSE file for more information.
+
 import log from 'electron-log';
+import isDev from 'electron-is-dev';
 import os from 'os';
 import fs from 'fs';
 import path from 'path';
@@ -17,13 +23,17 @@ import WalletSession from './wallet/session';
 import iConfig from './constants/config';
 import AutoUpdater from './wallet/autoUpdater';
 import LoginCounter from './wallet/loginCounter';
+import uiType from './utils/uitype';
+import DaemonLogger from './wallet/DaemonLogger';
 
 export const il8n = new LocalizedStrings({
+  // eslint-disable-next-line global-require
   en: require('./il8n/en.json'),
+  // eslint-disable-next-line global-require
   fr: require('./il8n/fr.json')
 });
 
-export function savedInInstallDir(savePath) {
+export function savedInInstallDir(savePath: string) {
   const installationDirectory = path.resolve(remote.app.getAppPath(), '../../');
   const saveAttemptDirectory = path.resolve(savePath, '../');
   if (
@@ -38,7 +48,14 @@ export function savedInInstallDir(savePath) {
 export let config = iConfig;
 
 export const eventEmitter = new EventEmitter();
-eventEmitter.setMaxListeners(5);
+eventEmitter.setMaxListeners(6);
+
+const homedir = os.homedir();
+
+export const directories = [
+  `${homedir}/.ninja-walletpro`,
+  `${homedir}/.ninja-walletpro/logs`
+];
 
 export const updater = new AutoUpdater();
 updater.getLatestVersion();
@@ -49,41 +66,37 @@ remote.app.setAppUserModelId('wallet.ninja-wallet-pro.extra');
 
 log.debug(`NinjaCoin Pro wallet started...`);
 
-const homedir = os.homedir();
-
-export const directories = [
-  `${homedir}/.ninja-wallet-pro`,
-  `${homedir}/.ninja-wallet-pro/logs`
-];
-
 const [programDirectory] = directories;
 
-log.debug('Checking if program directories are present...');
-directories.forEach(dir => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir);
-    log.debug(`${dir} directories not detected, creating...`);
-  } else if (dir === programDirectory) {
-    log.debug('Directories found. Initializing wallet session...');
-  }
-});
-
 if (!fs.existsSync(`${programDirectory}/config.json`)) {
-  fs.writeFile(
-    `${programDirectory}/config.json`,
-    JSON.stringify(config, null, 4),
-    err => {
-      if (err) throw err;
-      log.debug('Config not detected, wrote internal config to disk.');
-    }
-  );
+  log.debug('Config not detected, writing internal config to disk...');
 } else {
   log.debug("Config file found in user's home directory, using it...");
   const rawUserConfig = fs
     .readFileSync(`${programDirectory}/config.json`)
     .toString();
-  config = JSON.parse(rawUserConfig);
+
+  // add possible missing fields using internal config values
+  try {
+    config = Object.assign(config, JSON.parse(rawUserConfig));
+  } catch {
+    log.debug('User config is not valid JSON!');
+  }
 }
+
+fs.writeFile(
+  `${programDirectory}/config.json`,
+  JSON.stringify(config, null, 4),
+  err => {
+    if (err) throw err;
+  }
+);
+
+const { darkMode, useLocalDaemon } = config;
+
+export const daemonLogger = useLocalDaemon ? new DaemonLogger() : null;
+
+const { textColor } = uiType(darkMode);
 
 export let session = new WalletSession();
 
@@ -95,7 +108,7 @@ if (!session.loginFailed && !session.firstStartup) {
 }
 
 ipcRenderer.on('handleClose', () => {
-  if (!session.loginFailed && !session.firstStartup) {
+  if (session && !session.loginFailed && !session.firstStartup) {
     const saved = session.saveWallet(session.walletFile);
     if (saved) {
       remote.app.exit();
@@ -105,21 +118,38 @@ ipcRenderer.on('handleClose', () => {
   }
 });
 
+let latestUpdate = '';
+
 eventEmitter.on('updateRequired', updateFile => {
-  const userResponse = remote.dialog.showMessageBox(null, {
-    type: 'info',
-    buttons: [il8n.cancel, il8n.ok],
-    title: il8n.update_required,
-    message: `${il8n.new_update}`
-  });
-  if (userResponse === 1) {
-    remote.shell.openExternal(updateFile);
-    remote.app.exit();
-  }
+  latestUpdate = updateFile;
+  const message = (
+    <div>
+      <center>
+        <p className={`subtitle ${textColor}`}>New Version Available!</p>
+      </center>
+      <br />
+      <p className={`subtitle ${textColor}`}>
+        There&apos;s a new version of NinjaCoin Pro Wallet available. Would you like to
+        download it?
+      </p>
+    </div>
+  );
+  eventEmitter.emit(
+    'openModal',
+    message,
+    'Download',
+    `Not Right Now`,
+    'getUpdate'
+  );
+});
+
+eventEmitter.on('getUpdate', () => {
+  remote.shell.openExternal(latestUpdate);
+  remote.app.exit();
 });
 
 ipcRenderer.on('handleSaveSilent', () => {
-  if (!session.loginFailed && !session.firstStartup) {
+  if (session && !session.loginFailed && !session.firstStartup) {
     const saved = session.saveWallet(session.walletFile);
     if (saved) {
       log.debug(`Wallet saved at ${session.walletFile}`);
@@ -128,30 +158,51 @@ ipcRenderer.on('handleSaveSilent', () => {
 });
 
 ipcRenderer.on('handleSave', () => {
-  if (!session.wallet) {
+  if (session && !session.wallet) {
     eventEmitter.emit('refreshLogin');
     return;
   }
-  const saved = session.saveWallet(session.walletFile);
-  if (saved) {
-    remote.dialog.showMessageBox(null, {
-      type: 'info',
-      buttons: [il8n.ok],
-      title: il8n.change_passwd_passwd_change_success_title,
-      message: il8n.saved_successfully
-    });
-  } else {
-    remote.dialog.showMessageBox(null, {
-      type: 'error',
-      buttons: [il8n.ok],
-      title: [il8n.change_passwd_passwd_change_unsuccess_title],
-      message: il8n.not_saved_successfully
-    });
+  if (session) {
+    const saved = session.saveWallet(session.walletFile);
+    if (saved) {
+      const message = (
+        <div>
+          <center>
+            <p className={`subtitle ${textColor}`}>Wallet Saved!</p>
+          </center>
+          <br />
+          <p className={`subtitle ${textColor}`}>
+            The wallet was saved successfully.
+          </p>
+        </div>
+      );
+      eventEmitter.emit('openModal', message, 'OK', null, null);
+    } else {
+      const message = (
+        <div>
+          <center>
+            <p className="subtitle has-texct-danger">Save Error!</p>
+          </center>
+          <br />
+          <p className={`subtitle ${textColor}`}>
+            The wallet did not save successfully. Check your directory
+            permissions and try again.
+          </p>
+        </div>
+      );
+      eventEmitter.emit('openModal', message, 'OK', null, null);
+    }
+  }
+});
+
+ipcRenderer.on('handleLock', () => {
+  if (session && loginCounter.isLoggedIn && session.walletPassword !== '') {
+    eventEmitter.emit('logOut');
   }
 });
 
 ipcRenderer.on('handleSaveAs', () => {
-  if (!session.wallet) {
+  if (session && !session.wallet) {
     eventEmitter.emit('refreshLogin');
     return;
   }
@@ -162,35 +213,56 @@ ipcRenderer.on('handleSaveAs', () => {
   if (savePath === undefined) {
     return;
   }
-  session.saveWallet(savePath);
-  remote.dialog.showMessageBox(null, {
-    type: 'info',
-    buttons: [il8n.ok],
-    title: il8n.change_passwd_passwd_change_success_title,
-    message: il8n.saved_successfully
-  });
+  if (session) {
+    const saved = session.saveWallet(savePath);
+    if (saved) {
+      const message = (
+        <div>
+          <center>
+            <p className={`subtitle ${textColor}`}>Wallet Saved!</p>
+          </center>
+          <br />
+          <p className={`subtitle ${textColor}`}>
+            The wallet was saved successfully.
+          </p>
+        </div>
+      );
+      eventEmitter.emit('openModal', message, 'OK', null, 'transactionCancel');
+    }
+  }
 });
 
 ipcRenderer.on('exportToCSV', () => {
-  if (!session.wallet) {
+  if (session && !session.wallet) {
     eventEmitter.emit('refreshLogin');
     return;
   }
-  const options = {
-    defaultPath: remote.app.getPath('documents')
-  };
-  const savePath = remote.dialog.showSaveDialog(null, options);
-  if (savePath === undefined) {
-    return;
+  if (session) {
+    const options = {
+      defaultPath: remote.app.getPath('documents')
+    };
+    const savePath = remote.dialog.showSaveDialog(null, options);
+    if (savePath === undefined) {
+      return;
+    }
+    log.debug(`Exporting transactions to csv file at ${savePath}.csv...`);
+    if (session) {
+      session.exportToCSV(savePath);
+      const message = (
+        <div>
+          <center>
+            <p className={`subtitle ${textColor}`}>CSV Exported!</p>
+          </center>
+          <br />
+          <p className={`subtitle ${textColor}`}>
+            Your transaction history has been exported to a .csv file at{' '}
+            {savePath}
+          </p>
+        </div>
+      );
+      eventEmitter.emit('openModal', message, 'OK', null, 'transactionCancel');
+    }
   }
-  log.debug(`Exporting transactions to csv file at ${savePath}.csv...`);
-  session.exportToCSV(savePath);
-  remote.dialog.showMessageBox(null, {
-    type: 'info',
-    buttons: [il8n.ok],
-    title: il8n.change_passwd_passwd_change_success_title,
-    message: `${il8n.exported_csv} ${savePath} ${il8n.dot_csv}`
-  });
 });
 
 function handleOpen() {
@@ -201,64 +273,110 @@ function handleOpen() {
   if (getPaths === undefined) {
     return;
   }
-  loginCounter.userLoginAttempted = false;
-  loginCounter.lastLoginAttemptFailed = false;
-  loginCounter.loginsAttempted = 0;
-  session.loginFailed = false;
-  session.saveWallet(session.walletFile);
-  const [, error] = WalletBackend.openWalletFromFile(
-    session.daemon,
-    getPaths[0],
-    ''
-  );
-  if (error && error.errorCode !== 5) {
-    log.debug(`Failed to open wallet: ${error.toString()}`);
-    remote.dialog.showMessageBox(null, {
-      type: 'error',
-      buttons: [il8n.ok],
-      title: il8n.title_error_opening_wallet,
-      message: il8n.error_opening_wallet
-    });
-    return;
-  }
-  if (error !== undefined) {
-    if (error.errorCode === 5) {
-      log.debug('Login to wallet failed, firing event...');
+  if (session) {
+    loginCounter.userLoginAttempted = false;
+    loginCounter.lastLoginAttemptFailed = false;
+    loginCounter.loginsAttempted = 0;
+    session.loginFailed = false;
+    session.saveWallet(session.walletFile);
+    const [, error] = WalletBackend.openWalletFromFile(
+      session.daemon,
+      getPaths[0],
+      ''
+    );
+    if (error && error.errorCode !== 5) {
+      log.debug(`Failed to open wallet: ${error.toString()}`);
+      const message = (
+        <div>
+          <center>
+            <p className="subtitle has-text-danger">Wallet Open Error!</p>
+          </center>
+          <br />
+          <p className={`subtitle ${textColor}`}>
+            Your wallet did not open successfully. Try again.
+          </p>
+        </div>
+      );
+      eventEmitter.emit('openModal', message, 'OK', null, null);
+      return;
     }
-  }
-  const selectedPath = getPaths[0];
-  const savedSuccessfully = session.handleWalletOpen(selectedPath);
-  if (savedSuccessfully === true) {
-    session = null;
-    session = new WalletSession();
-    startWallet();
-    eventEmitter.emit('refreshLogin');
-    eventEmitter.emit('openNewWallet');
-  } else {
-    remote.dialog.showMessageBox(null, {
-      type: 'error',
-      buttons: [il8n.ok],
-      title: il8n.title_error_opening_wallet,
-      message: il8n.error_opening_wallet
-    });
+    if (error !== undefined) {
+      if (error.errorCode === 5) {
+        log.debug('Login to wallet failed, firing event...');
+      }
+    }
+    const selectedPath = getPaths[0];
+    const savedSuccessfully = session.handleWalletOpen(selectedPath);
+    if (savedSuccessfully === true) {
+      session = null;
+      session = new WalletSession();
+      startWallet();
+      eventEmitter.emit('refreshLogin');
+      eventEmitter.emit('openNewWallet');
+    } else {
+      const message = (
+        <div>
+          <center>
+            <p className="subtitle has-text-danger">Wallet Open Error!</p>
+          </center>
+          <br />
+          <p className={`subtitle ${textColor}`}>
+            Your wallet did not open successfully. Try again.
+          </p>
+        </div>
+      );
+      eventEmitter.emit('openModal', message, 'OK', null, null);
+    }
   }
 }
 
+/*
+// This isn't very good for the UX as it freezes everything up.
+// Next release cycle I will be making my own in-window modal popup, so let's remove this for now.
+eventEmitter.on('deadNode', () => {
+  remote.dialog.showMessageBox(null, {
+    type: 'error',
+    buttons: [il8n.ok],
+    title: 'Dead Node',
+    message:
+      "The node you've connected to is most likely dead. Please try a different node."
+  });
+});
+*/
+
 eventEmitter.on('sendNotification', function sendNotification(amount) {
   const notif = new window.Notification('Transaction Received!', {
-    body: `${il8n.just_received} ${amount} ${session.wallet.config.ticker}`
+    body: `${il8n.just_received} ${amount} ${il8n.NINJA}`
   });
   if (notif) {
-    log.debug(
-      `Sent notification: You've just received ${amount} ${
-        session.wallet.config.ticker
-      }`
-    );
+    log.debug(`Sent notification: You've just received ${amount} NINJA.`);
   }
 });
 
 ipcRenderer.on('handleOpen', handleOpen);
 eventEmitter.on('handleOpen', handleOpen);
+
+ipcRenderer.on('failedDaemonInit', failedDaemonInit);
+
+function failedDaemonInit() {
+  if (session) {
+    session.modifyConfig('useLocalDaemon', false);
+  }
+  const message = (
+    <div>
+      <center>
+        <p className="subtitle has-text-danger">Local Daemon Error!</p>
+      </center>
+      <br />
+      <p className={`subtitle ${textColor}`}>
+        Your daemon failed to initialize, and you have been placed back in
+        remote node mode automatically. Check your NinjaCoind path in settings
+        is accurate and that NinjaCoind has execute permissions, and try again.
+      </p>
+    </div>
+  );
+  eventEmitter.emit('openModal', message, 'OK', null, 'initializeNewSession');
+}
 
 eventEmitter.on('initializeNewNode', (password, daemonHost, daemonPort) => {
   session = null;
@@ -283,44 +401,62 @@ function handleNew() {
   if (savePath === undefined) {
     return;
   }
-  session.saveWallet(session.walletFile);
-  if (savedInInstallDir(savePath)) {
-    remote.dialog.showMessageBox(null, {
-      type: 'error',
-      buttons: [il8n.ok],
-      title: il8n.title_no_saving_in_install_dir,
-      message: il8n.no_saving_in_install_dir
-    });
-    return;
-  }
-  const createdSuccessfuly = session.handleNewWallet(savePath);
-  if (createdSuccessfuly === false) {
-    remote.dialog.showMessageBox(null, {
-      type: 'error',
-      buttons: ['OK'],
-      title: il8n.title_error_creating_wallet,
-      message: il8n.not_created_successfully
-    });
-  } else {
-    remote.dialog.showMessageBox(null, {
-      type: 'info',
-      buttons: ['OK'],
-      title: il8n.title_created,
-      message: il8n.created_successfully
-    });
-    const savedSuccessfully = session.handleWalletOpen(savePath);
-    if (savedSuccessfully === true) {
-      session = null;
-      session = new WalletSession();
-      startWallet();
-      eventEmitter.emit('handlePasswordChange');
+  if (session) {
+    session.saveWallet(session.walletFile);
+    if (savedInInstallDir(savePath)) {
+      const message = (
+        <div>
+          <center>
+            <p className="subtitle has-text-danger">Wallet Save Error!</p>
+          </center>
+          <br />
+          <p className={`subtitle ${textColor}`}>
+            You can not save the wallet in the installation directory. The
+            windows installer will delete all files in the directory upon
+            upgrading the application, so it is not allowed. Please save the
+            wallet somewhere else.
+          </p>
+        </div>
+      );
+      eventEmitter.emit('openModal', message, 'OK', null, null);
+      return;
+    }
+    const createdSuccessfuly = session.handleNewWallet(savePath);
+    if (createdSuccessfuly === false) {
+      const message = (
+        <div>
+          <center>
+            <p className="subtitle has-text-danger">Wallet Creation Error!</p>
+          </center>
+          <br />
+          <p className={`subtitle ${textColor}`}>
+            The wallet was not created successfully. Check your directory
+            permissions and try again.
+          </p>
+        </div>
+      );
+      eventEmitter.emit('openModal', message, 'OK', null, null);
     } else {
-      remote.dialog.showMessageBox(null, {
-        type: 'error',
-        buttons: ['OK'],
-        title: il8n.title_error_opening_wallet,
-        message: il8n.error_opening_wallet
-      });
+      const savedSuccessfully = session.handleWalletOpen(savePath);
+      if (savedSuccessfully === true) {
+        session = null;
+        session = new WalletSession();
+        startWallet();
+        eventEmitter.emit('handlePasswordChange');
+        const message = (
+          <div>
+            <center>
+              <p className={`subtitle ${textColor}`}>Success!</p>
+            </center>
+            <br />
+            <p className={`subtitle ${textColor}`}>
+              Your new wallet was created successfully. Please set your
+              password.
+            </p>
+          </div>
+        );
+        eventEmitter.emit('openModal', message, 'OK', null, null);
+      }
     }
   }
 }
@@ -328,9 +464,46 @@ function handleNew() {
 ipcRenderer.on('handleNew', handleNew);
 eventEmitter.on('handleNew', handleNew);
 
-ipcRenderer.on('handleBackup', () => {
-  if (!session.wallet || !loginCounter.isLoggedIn) {
+function handleBackup() {
+  if ((session && !session.wallet) || !loginCounter.isLoggedIn) {
     eventEmitter.emit('refreshLogin');
+    return;
+  }
+  const message = (
+    <div>
+      <center>
+        <p className={`subtitle ${textColor}`}>Backup</p>
+      </center>
+      <br />
+      <p className={`subtitle ${textColor}`}>
+        How would you like to back up your keys?
+      </p>
+    </div>
+  );
+  eventEmitter.emit(
+    'openModal',
+    message,
+    'Copy to Clipboard',
+    null,
+    'backupToClipboard',
+    'Save to File',
+    'backupToFile'
+  );
+}
+
+function restartApplication() {
+  if (!isDev) {
+    remote.app.relaunch();
+    remote.app.quit();
+  } else {
+    log.debug(`Can't restart automatically in dev mode`);
+  }
+}
+eventEmitter.on('restartApplication', restartApplication);
+
+eventEmitter.on('backupToFile', backupToFile);
+function backupToFile() {
+  if (!session) {
     return;
   }
   const publicAddress = session.wallet.getPrimaryAddress();
@@ -339,9 +512,12 @@ ipcRenderer.on('handleBackup', () => {
     privateViewKey
   ] = session.wallet.getPrimaryAddressPrivateKeys();
   const [mnemonicSeed, err] = session.wallet.getMnemonicSeed();
-  log.debug(err);
+  if (err) {
+    log.debug(err);
+    return;
+  }
 
-  const msg =
+  const secret =
     // eslint-disable-next-line prefer-template
     publicAddress +
     `\n\n${il8n.private_spend_key_colon}\n\n` +
@@ -352,30 +528,96 @@ ipcRenderer.on('handleBackup', () => {
     mnemonicSeed +
     `\n\n${il8n.please_save_your_keys}`;
 
-  const userSelection = remote.dialog.showMessageBox(null, {
-    type: 'info',
-    buttons: [il8n.copy_to_clipboard, il8n.cancel],
-    title: il8n.backup,
-    message: msg
-  });
-  if (userSelection === 0) {
-    clipboard.writeText(msg);
+  const options = {
+    defaultPath: remote.app.getPath('documents')
+  };
+  const savePath = remote.dialog.showSaveDialog(null, options);
+  if (savePath === undefined) {
+    return;
   }
-});
+
+  fs.writeFile(savePath, secret, error => {
+    throw error;
+  });
+}
+
+eventEmitter.on('backupToClipboard', backupToClipboard);
+function backupToClipboard() {
+  if (!session) {
+    return;
+  }
+  const publicAddress = session.wallet.getPrimaryAddress();
+  const [
+    privateSpendKey,
+    privateViewKey
+  ] = session.wallet.getPrimaryAddressPrivateKeys();
+  const [mnemonicSeed, err] = session.wallet.getMnemonicSeed();
+  if (err) {
+    log.debug(err);
+    return;
+  }
+
+  const secret =
+    // eslint-disable-next-line prefer-template
+    publicAddress +
+    `\n\n${il8n.private_spend_key_colon}\n\n` +
+    privateSpendKey +
+    `\n\n${il8n.private_view_key_colon}\n\n` +
+    privateViewKey +
+    `\n\n${il8n.mnemonic_seed_colon}\n\n` +
+    mnemonicSeed +
+    `\n\n${il8n.please_save_your_keys}`;
+
+  clipboard.writeText(secret);
+}
+
+ipcRenderer.on('handleBackup', handleBackup);
+eventEmitter.on('handleBackup', handleBackup);
+
+function handleImport() {
+  log.debug('User selected to import wallet.');
+  const message = (
+    <div>
+      <center>
+        <p className={`title ${textColor}`}>Select Import Type</p>
+      </center>
+      <br />
+      <p className={`subtitle ${textColor}`}>
+        <b>Send to:</b>
+        <br />
+        Would you like to import from seed or keys?
+      </p>
+    </div>
+  );
+  eventEmitter.emit(
+    'openModal',
+    message,
+    'Seed',
+    null,
+    'importSeed',
+    'Keys',
+    'importKey'
+  );
+}
+
+eventEmitter.on('handleImport', handleImport);
+ipcRenderer.on('handleImport', handleImport);
 
 const store = configureStore();
 
 const AppContainer = process.env.PLAIN_HMR ? Fragment : ReactHotAppContainer;
 
 async function startWallet() {
-  try {
-    await session.wallet.start();
-  } catch {
-    log.debug('Password required, redirecting to login...');
-    loginCounter.isLoggedIn = true;
-    eventEmitter.emit('loginFailed');
+  if (session) {
+    try {
+      await session.wallet.start();
+    } catch {
+      log.debug('Password required, redirecting to login...');
+      loginCounter.isLoggedIn = true;
+      eventEmitter.emit('loginFailed');
+    }
+    eventEmitter.emit('gotNodeFee');
   }
-  eventEmitter.emit('gotNodeFee');
 }
 
 function activityDetected() {
@@ -393,9 +635,11 @@ render(
       <Root store={store} history={history} />
     </div>
   </AppContainer>,
+  // $FlowFixMe
   document.getElementById('root')
 );
 
+// $FlowFixMe
 if (module.hot) {
   module.hot.accept('./containers/Root', () => {
     // eslint-disable-next-line global-require
@@ -411,6 +655,7 @@ if (module.hot) {
           <NextRoot store={store} history={history} />{' '}
         </div>
       </AppContainer>,
+      // $FlowFixMe
       document.getElementById('root')
     );
   });

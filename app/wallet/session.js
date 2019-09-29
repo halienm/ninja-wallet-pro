@@ -1,9 +1,20 @@
 // @flow
-import { WalletBackend, Daemon, LogLevel } from 'turtlecoin-wallet-backend';
+//
+// Copyright (C) 2019 ExtraHash
+//
+// Please see the included LICENSE file for more information.
+import request from 'request-promise';
+import {
+  WalletBackend,
+  Daemon,
+  LogLevel,
+  Config
+} from 'turtlecoin-wallet-backend';
 import log from 'electron-log';
 import fs from 'fs';
 import { createObjectCsvWriter } from 'csv-writer';
 import { config, directories, eventEmitter, loginCounter } from '../index';
+import { name, version } from '../../package.json';
 
 export default class WalletSession {
   loginFailed: boolean;
@@ -22,7 +33,9 @@ export default class WalletSession {
 
   firstLoadOnLogin: boolean;
 
-  wbConfig: any;
+  wbConfig: Config;
+
+  selectedFiat: string;
 
   daemon: any;
 
@@ -32,7 +45,9 @@ export default class WalletSession {
 
   address: string;
 
-  constructor(password: string, daemonHost: string, daemonPort: string) {
+  fiatPrice: number;
+
+  constructor(password?: string, daemonHost?: string, daemonPort?: string) {
     this.loginFailed = false;
     this.firstStartup = false;
     this.walletPassword = password || '';
@@ -42,12 +57,24 @@ export default class WalletSession {
     this.walletFile = config.walletFile;
     this.darkMode = config.darkMode || false;
     this.firstLoadOnLogin = true;
-    /* put config for turtlecoin-wallet-backend/WalletBackend.ts here */
     this.wbConfig = {
-      scanCoinbaseTransactions: config.scanCoinbaseTransactions
+      scanCoinbaseTransactions: config.scanCoinbaseTransactions,
+      customUserAgentString: `${name}-v${version}`,
+      requestTimeout: 20 * 1000
     };
 
-    this.daemon = new Daemon(this.daemonHost, this.daemonPort);
+    this.selectedFiat = config.selectedFiat;
+
+    this.fiatPrice = 0;
+
+    this.getFiatPrice(this.selectedFiat);
+
+    const { useLocalDaemon } = config;
+
+    this.daemon = new Daemon(
+      useLocalDaemon ? '127.0.0.1' : this.daemonHost,
+      useLocalDaemon ? 11898 : this.daemonPort
+    );
 
     if (this.walletFile === '') {
       this.firstStartup = true;
@@ -85,18 +112,40 @@ export default class WalletSession {
       this.syncStatus = this.getSyncStatus();
       this.address = this.wallet.getPrimaryAddress();
 
-      if (config.logLevel === 'DEBUG') {
-        this.wallet.setLogLevel(LogLevel.DEBUG);
-        this.wallet.setLoggerCallback(prettyMessage => {
-          const logStream = fs.createWriteStream(
-            `${directories[1]}/ninja-wallet-pro.log`,
-            {
-              flags: 'a'
-            }
-          );
-          logStream.write(`${prettyMessage}\n`);
-        });
+      let logLevel;
+
+      switch (config.logLevel) {
+        case 'DEBUG':
+          logLevel = LogLevel.DEBUG;
+          break;
+        case 'ERROR':
+          logLevel = LogLevel.ERROR;
+          break;
+        case 'INFO':
+          logLevel = LogLevel.INFO;
+          break;
+        case 'WARNING':
+          logLevel = LogLevel.WARNING;
+          break;
+        case 'TRACE':
+          logLevel = LogLevel.TRACE;
+          break;
+        default:
+          logLevel = LogLevel.DISABLED;
+          break;
       }
+
+      this.wallet.setLogLevel(logLevel);
+
+      this.wallet.setLoggerCallback(prettyMessage => {
+        const logStream = fs.createWriteStream(
+          `${directories[1]}/wallet-backend.log`,
+          {
+            flags: 'a'
+          }
+        );
+        logStream.write(`${prettyMessage}\n`);
+      });
 
       setInterval(() => this.startAutoSave(), 1000 * 60 * 5);
 
@@ -115,6 +164,19 @@ export default class WalletSession {
           'sendNotification',
           this.atomicToHuman(transaction.totalAmount(), true)
         );
+      });
+      this.wallet.on('deadnode', () => {
+        eventEmitter.emit('deadNode');
+      });
+      eventEmitter.on('scanCoinbaseTransactionsOn', () => {
+        if (this.wallet) {
+          this.wallet.scanCoinbaseTransactions(true);
+        }
+      });
+      eventEmitter.on('scanCoinbaseTransactionsOff', () => {
+        if (this.wallet) {
+          this.wallet.scanCoinbaseTransactions(false);
+        }
       });
     } else {
       this.address = '';
@@ -160,6 +222,23 @@ export default class WalletSession {
       }
     );
     log.debug('Wrote config file to disk.');
+  }
+
+  modifyConfig(propertyName: string, value: any) {
+    const programDirectory = directories[0];
+    const modifiedConfig = config;
+    modifiedConfig[propertyName] = value;
+    log.debug(`Config update: ${propertyName} set to ${value.toString()}`);
+    config[propertyName] = value;
+    fs.writeFileSync(
+      `${programDirectory}/config.json`,
+      JSON.stringify(config, null, 4),
+      err => {
+        if (err) throw err;
+        log.debug(err);
+        return false;
+      }
+    );
   }
 
   exportToCSV(savePath: string) {
@@ -304,7 +383,7 @@ export default class WalletSession {
   getTransactions(
     startIndex?: number,
     numTransactions?: number,
-    includeFusions: boolean
+    includeFusions?: boolean
   ) {
     if (this.loginFailed || this.firstStartup) {
       return [];
@@ -313,7 +392,7 @@ export default class WalletSession {
     const rawTransactions = this.wallet.getTransactions(
       startIndex,
       numTransactions,
-      includeFusions
+      includeFusions || false
     );
     const [unlockedBalance, lockedBalance] = this.wallet.getBalance();
     let balance = parseInt(unlockedBalance + lockedBalance, 10);
@@ -350,6 +429,58 @@ export default class WalletSession {
     return lockedBalance;
   }
 
+  getFiatPrice = async (fiat: string) => {
+    const apiURL = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=${fiat}&ids=turtlecoin&order=market_cap_desc&per_page=100&page=1&sparkline=false&price_change_percentage=7d`;
+
+    const requestOptions = {
+      method: 'GET',
+      uri: apiURL,
+      headers: {},
+      json: true,
+      gzip: true
+    };
+    try {
+      const result = await request(requestOptions);
+      this.fiatPrice = result[0].current_price;
+      eventEmitter.emit('gotFiatPrice', result[0].current_price);
+      return result[0].current_price;
+    } catch (err) {
+      log.debug(`Request failed, CoinGecko API call error: \n`, err);
+      return undefined;
+    }
+  };
+
+  getDaemonSyncStatus() {
+    if (this.loginFailed || this.firstStartup) {
+      return 0;
+    }
+    const [walletHeight, daemonHeight] = this.wallet.getSyncStatus();
+    let [, , networkHeight] = this.wallet.getSyncStatus();
+    /* Since we update the daemonHeight in intervals, and we update wallet
+        height by syncing, occasionally wallet height is > network height.
+        Fix that here. */
+    if (
+      daemonHeight > networkHeight &&
+      networkHeight !== 0 &&
+      networkHeight + 10 > daemonHeight
+    ) {
+      networkHeight = daemonHeight;
+    }
+    // Don't divide by zero
+    const syncFill = networkHeight === 0 ? 0 : daemonHeight / networkHeight;
+    let percentSync = 100 * syncFill;
+    // Prevent 100% when just under
+    if (percentSync > 99.99 && percentSync < 100) {
+      percentSync = 99.99;
+    }
+
+    if (networkHeight - walletHeight === 1) {
+      percentSync = 100.0;
+    }
+
+    return this.roundToNearestHundredth(percentSync);
+  }
+
   getSyncStatus() {
     if (this.loginFailed || this.firstStartup) {
       return 0;
@@ -372,16 +503,17 @@ export default class WalletSession {
       networkHeight = walletHeight;
     }
     // Don't divide by zero
-    let syncFill = networkHeight === 0 ? 0 : walletHeight / networkHeight;
+    const syncFill = networkHeight === 0 ? 0 : walletHeight / networkHeight;
     let percentSync = 100 * syncFill;
-    // Prevent bar looking full when it's not
-    if (syncFill > 0.97 && syncFill < 1) {
-      syncFill = 0.97;
-    }
     // Prevent 100% when just under
     if (percentSync > 99.99 && percentSync < 100) {
       percentSync = 99.99;
     }
+
+    if (networkHeight - walletHeight === 1) {
+      percentSync = 100.0;
+    }
+
     return this.roundToNearestHundredth(percentSync);
   }
 
@@ -432,8 +564,8 @@ export default class WalletSession {
     return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   }
 
-  atomicToHuman(x: number, prettyPrint: boolean) {
-    if (prettyPrint) {
+  atomicToHuman(x: number, prettyPrint?: boolean) {
+    if (prettyPrint || false) {
       // $FlowFixMe
       return `${this.formatLikeCurrency((x / 100).toFixed(2))}`;
     }
