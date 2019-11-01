@@ -213,7 +213,7 @@ app.on('ready', async () => {
   }
 
   mainWindow = new BrowserWindow({
-    title: `NinjaCoin wallet pro v${version}`,
+    title: `NinjaCoin Wallet Pro v${version}`,
     useContentSize: true,
     show: false,
     width: 1250,
