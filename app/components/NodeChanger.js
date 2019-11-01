@@ -285,7 +285,7 @@ export default class NodeChanger extends Component<Props, State> {
         <br />
         <br />
         <p className={`has-text-weight-bold ${textColor}`}>
-          TurtleCoind.log file location:
+          NinjaCoind.log file location:
         </p>
         <div className="field has-addons">
           <div className="control is-expanded">
