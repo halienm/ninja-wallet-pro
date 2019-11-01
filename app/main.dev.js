@@ -1,19 +1,31 @@
-// @flow
-//
 // Copyright (C) 2019 ExtraHash
 //
 // Please see the included LICENSE file for more information.
 import path from 'path';
 import os from 'os';
 import fs from 'fs';
-import { app, BrowserWindow, Tray, Menu, shell } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  Tray,
+  Menu,
+  shell,
+  dialog,
+  ipcMain
+} from 'electron';
 import isDev from 'electron-is-dev';
-import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import contextMenu from 'electron-context-menu';
 import MenuBuilder from './menu';
 import iConfig from './constants/config';
-import NinjaCoind from './utils/NinjaCoind';
+import packageInfo from '../package.json';
+
+/** disable background throttling so our sync
+ *   speed doesn't crap out when minimized
+ */
+app.commandLine.appendSwitch('disable-background-timer-throttling');
+
+const { version } = packageInfo;
 
 let isQuitting;
 let tray = null;
@@ -27,6 +39,14 @@ const directories = [
 ];
 
 const [programDirectory] = directories;
+
+log.debug('Checking if program directories are present...');
+directories.forEach(dir => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir);
+    log.debug(`${dir} directories not detected, creating...`);
+  }
+});
 
 if (fs.existsSync(`${programDirectory}/config.json`)) {
   const rawUserConfig = fs
@@ -42,31 +62,38 @@ if (fs.existsSync(`${programDirectory}/config.json`)) {
   }
 }
 
-log.debug('Checking if program directories are present...');
-directories.forEach(dir => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir);
-    log.debug(`${dir} directories not detected, creating...`);
-  }
-});
+if (fs.existsSync(`${programDirectory}/addressBook.json`)) {
+  const rawAddressBook = fs
+    .readFileSync(`${programDirectory}/addressBook.json`)
+    .toString();
 
-const daemonLogFile = path.resolve(directories[1], 'NinjaCoind.log');
+  // check if the user addressBook is valid JSON before parsing it
+  try {
+    JSON.parse(rawAddressBook);
+  } catch {
+    // if it isn't, backup the invalid JSON and overwrite it with an empty addressBook
+    fs.copyFileSync(
+      `${programDirectory}/addressBook.json`,
+      `${programDirectory}/addressBook.notvalid.json`
+    );
+    fs.writeFileSync(`${programDirectory}/addressBook.json`, '[]');
+  }
+} else {
+  fs.writeFileSync(`${programDirectory}/addressBook.json`, '[]');
+}
+
+const daemonLogFile = path.resolve(directories[1], 'TurtleCoind.log');
+const backendLogFile = path.resolve(directories[1], 'wallet-backend.log');
 fs.closeSync(fs.openSync(daemonLogFile, 'w'));
 
-let useLocalDaemon;
-let localDaemon;
-let ninjaCoindPath;
+try {
+  fs.closeSync(fs.openSync(backendLogFile, 'wx'));
+} catch {
+  log.debug('Backend log file found.');
+}
 
 if (config) {
   isQuitting = !config.closeToTray;
-  // eslint-disable-next-line prefer-destructuring
-  useLocalDaemon = config.useLocalDaemon;
-  // eslint-disable-next-line prefer-destructuring
-  ninjaCoindPath = config.ninjaCoindPath;
-}
-
-if (useLocalDaemon && ninjaCoindPath) {
-  localDaemon = new NinjaCoind(ninjaCoindPath);
 }
 
 if (os.platform() !== 'win32') {
@@ -77,14 +104,6 @@ if (os.platform() !== 'win32') {
 
 if (os.platform() === 'darwin') {
   isQuitting = true;
-}
-
-export default class AppUpdater {
-  constructor() {
-    log.transports.file.level = 'info';
-    autoUpdater.logger = log;
-    autoUpdater.checkForUpdatesAndNotify();
-  }
 }
 
 let mainWindow = null;
@@ -133,9 +152,6 @@ if (!isSingleInstance) {
 }
 
 app.on('before-quit', () => {
-  if (useLocalDaemon) {
-    localDaemon.quit();
-  }
   log.debug('Exiting application.');
   isQuitting = true;
 });
@@ -146,18 +162,44 @@ app.on('window-all-closed', () => {
 
 contextMenu({
   showInspectElement: isDev,
+  showSaveImage: false,
+  showCopyImage: false,
+  showCopyLink: false,
   prepend: (defaultActions, params) => [
     {
       label: 'Search block explorer for this hash',
-      // Only show it when right-clicking text
+      // Only show it when right-clicking a hash
       visible: params.selectionText.trim().length === 64,
       click: () => {
         shell.openExternal(
-          `http://explorer.ninjacoin.org/?hash=${(
+          `http://explorer.ninjacoin.org/?hash=${encodeURIComponent(
             params.selectionText
           )}#blockchain_transaction`
         );
       }
+    },
+    {
+      label: 'Cut',
+      role: 'cut',
+      enabled: false,
+      visible:
+        params.linkURL.includes('#addressinput') &&
+        params.inputFieldType !== 'plainText'
+    },
+    {
+      label: 'Copy',
+      role: 'copy',
+      enabled: false,
+      visible:
+        params.linkURL.includes('#addressinput') &&
+        params.inputFieldType !== 'plainText'
+    },
+    {
+      label: 'Paste',
+      role: 'paste',
+      visible:
+        params.linkURL.includes('#addressinput') &&
+        params.inputFieldType !== 'plainText'
     }
   ]
 });
@@ -171,11 +213,13 @@ app.on('ready', async () => {
   }
 
   mainWindow = new BrowserWindow({
+    title: `NinjaCoin wallet pro v${version}`,
+    useContentSize: true,
     show: false,
-    width: 1210,
-    height: 605,
-    minWidth: 1210,
-    minHeight: 605,
+    width: 1250,
+    height: 625,
+    minWidth: 1250,
+    minHeight: 625,
     backgroundColor: '#121212',
     icon: path.join(__dirname, 'images/icon.png'),
     webPreferences: {
@@ -213,16 +257,9 @@ app.on('ready', async () => {
 
   mainWindow.loadURL(`file://${__dirname}/app.html`);
 
-  // @TODO: Use 'ready-to-show' event
-  //        https://github.com/electron/electron/blob/master/docs/api/browser-window.md#using-ready-to-show-event
   mainWindow.webContents.on('did-finish-load', () => {
     if (!mainWindow) {
       throw new Error('"mainWindow" is not defined');
-    }
-    if (localDaemon) {
-      if (localDaemon.child.exitCode) {
-        mainWindow.webContents.send('failedDaemonInit');
-      }
     }
     if (process.env.START_MINIMIZED) {
       mainWindow.minimize();
@@ -246,6 +283,28 @@ app.on('ready', async () => {
     mainWindow = null;
   });
 
+  mainWindow.on('unresponsive', () => {
+    // catch the unresponsive event
+    const userSelection = dialog.showMessageBox(mainWindow, {
+      type: 'error',
+      buttons: ['Kill', `Don't Kill`],
+      title: 'Unresponse Application',
+      message: 'The application is unresponsive. Would you like to kill it?'
+    });
+    if (userSelection === 0) {
+      process.exit(1);
+    }
+  });
+
+  process.on('uncaughtException', () => {
+    // catch uncaught exceptions in the main process
+    dialog.showErrorBox(
+      'Uncaught Error',
+      'An unexpected error has occurred. Please report this error, and what you were doing to cause it.'
+    );
+    process.exit(1);
+  });
+
   const menuBuilder = new MenuBuilder(mainWindow);
   menuBuilder.buildMenu();
 });
@@ -254,4 +313,12 @@ function showMainWindow() {
   if (mainWindow) {
     mainWindow.show();
   }
+}
+
+ipcMain.on('closeToTrayToggle', (event: any, state: boolean) => {
+  toggleCloseToTray(state);
+});
+
+function toggleCloseToTray(state: boolean) {
+  isQuitting = !state;
 }

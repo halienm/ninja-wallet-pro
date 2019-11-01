@@ -1,5 +1,3 @@
-// @flow
-//
 // Copyright (C) 2019 ExtraHash
 //
 // Please see the included LICENSE file for more information.
@@ -76,7 +74,7 @@ export default class Login extends Component<Props, State> {
       <div>
         <Redirector />
         <Modal darkMode={darkMode} />
-        <div className={`fullwindow outer-div ${backgroundColor}`}>
+        <div className={`fullwindow ${backgroundColor}`}>
           <div className="mid-div">
             <div
               className={

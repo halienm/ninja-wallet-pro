@@ -1,22 +1,34 @@
-// @flow
-//
 // Copyright (C) 2019 ExtraHash
 //
 // Please see the included LICENSE file for more information.
+
+/* eslint-disable jsx-a11y/label-has-associated-control */
+
 import crypto from 'crypto';
+import { ipcRenderer } from 'electron';
 import isDev from 'electron-is-dev';
 import log from 'electron-log';
 import React, { Component } from 'react';
-import { Redirect } from 'react-router-dom';
+import Creatable from 'react-select/creatable';
 import ReactTooltip from 'react-tooltip';
-import { session, eventEmitter, il8n, config, loginCounter } from '../index';
+import {
+  session,
+  eventEmitter,
+  il8n,
+  config,
+  loginCounter,
+  addressList
+} from '../index';
 import NavBar from './NavBar';
 import BottomBar from './BottomBar';
 import Redirector from './Redirector';
-import Modal from './Modal';
 import uiType from '../utils/uitype';
+import donateInfo from '../constants/donateInfo.json';
 
-type Props = {};
+type Props = {
+  uriAddress?: string,
+  uriPaymentID?: string
+};
 
 type State = {
   unlockedBalance: number,
@@ -25,14 +37,39 @@ type State = {
   paymentID: string,
   darkMode: boolean,
   transactionInProgress: boolean,
-  transactionComplete: boolean,
   displayCurrency: string,
   fiatPrice: number,
   fiatSymbol: string,
   symbolLocation: string,
   sendToAddress: string,
   loopTest: boolean,
-  looping: boolean
+  looping: boolean,
+  pageAnimationIn: string,
+  selectedContact: any,
+  menuIsOpen: boolean
+};
+
+const customStyles = {
+  control: base => ({
+    ...base,
+    height: 54,
+    minHeight: 54,
+    fontSize: '1.5rem'
+  }),
+  placeholder: base => ({
+    ...base,
+    color: 'hsl(0, 0%, 71%)',
+    fontWeight: 'normal'
+  }),
+  menuList: base => ({
+    ...base,
+    color: 'hsl(0, 0%, 21%)',
+    fontWeight: 'normal'
+  }),
+  singleValue: base => ({
+    ...base,
+    fontWeight: 'normal'
+  })
 };
 
 export default class Send extends Component<Props, State> {
@@ -42,25 +79,31 @@ export default class Send extends Component<Props, State> {
 
   loopInterval: IntervalID | null;
 
+  autoCompleteContacts: any[];
+
+  static defaultProps: any;
+
   constructor(props?: Props) {
     super(props);
     this.state = {
       unlockedBalance: session.getUnlockedBalance(),
       enteredAmount: '',
       totalAmount: '',
-      sendToAddress: '',
-      paymentID: '',
+      sendToAddress: props.uriAddress || '',
+      paymentID: props.uriPaymentID || '',
       darkMode: session.darkMode,
       transactionInProgress: false,
-      transactionComplete: false,
       displayCurrency: config.displayCurrency,
       fiatPrice: session.fiatPrice,
       fiatSymbol: config.fiatSymbol,
       symbolLocation: config.symbolLocation,
       loopTest: loginCounter.loopTest,
-      looping: loginCounter.looping
+      looping: loginCounter.looping,
+      pageAnimationIn: loginCounter.getAnimation('/send'),
+      selectedContact: null,
+      menuIsOpen: false
     };
-    this.transactionComplete = this.transactionComplete.bind(this);
+
     this.generatePaymentID = this.generatePaymentID.bind(this);
     this.resetPaymentID = this.resetPaymentID.bind(this);
     this.handleTransactionInProgress = this.handleTransactionInProgress.bind(
@@ -76,25 +119,51 @@ export default class Send extends Component<Props, State> {
     this.confirmTransaction = this.confirmTransaction.bind(this);
     this.toggleLoopTest = this.toggleLoopTest.bind(this);
     this.loopInterval = null;
+    this.checkInputLength = this.checkInputLength.bind(this);
+    this.handleDonate = this.handleDonate.bind(this);
+    this.autoCompleteContacts = [
+      ...addressList.map(contact => {
+        return { label: contact.name, value: contact.address };
+      })
+    ];
+    this.devContact = {
+      label: donateInfo.name,
+      value: donateInfo.address
+    };
   }
 
   componentDidMount() {
-    eventEmitter.on('transactionComplete', this.transactionComplete);
     eventEmitter.on('transactionInProgress', this.handleTransactionInProgress);
     eventEmitter.on('transactionCancel', this.handleTransactionCancel);
     eventEmitter.on('gotFiatPrice', this.updateFiatPrice);
     eventEmitter.on('modifyCurrency', this.modifyCurrency);
     eventEmitter.on('confirmTransaction', this.sendTransaction);
+    ipcRenderer.on('handleDonate', this.handleDonate);
+    // eslint-disable-next-line react/destructuring-assignment
+    if (this.props && this.props.uriAddress) {
+      const { uriAddress } = this.props;
+
+      const selectedContact = this.search(
+        uriAddress,
+        [this.devContact, ...this.autoCompleteContacts],
+        'value'
+      );
+
+      this.setState({
+        selectedContact
+      });
+    }
   }
 
   componentWillUnmount() {
     const { looping } = this.state;
-    eventEmitter.off('transactionComplete', this.transactionComplete);
     eventEmitter.off('transactionInProgress', this.handleTransactionInProgress);
     eventEmitter.off('transactionCancel', this.handleTransactionCancel);
     eventEmitter.off('gotFiatPrice', this.updateFiatPrice);
     eventEmitter.off('modifyCurrency', this.modifyCurrency);
     eventEmitter.off('confirmTransaction', this.sendTransaction);
+    ipcRenderer.off('handleDonate', this.handleDonate);
+
     if (looping) {
       clearInterval(this.loopInterval);
       loginCounter.looping = false;
@@ -126,11 +195,8 @@ export default class Send extends Component<Props, State> {
     });
   };
 
-  transactionComplete = () => {
-    this.setState({
-      transactionComplete: true,
-      transactionInProgress: false
-    });
+  handleDonate = () => {
+    this.handleAddressChange(this.devContact);
   };
 
   handleAmountChange = (event: any) => {
@@ -206,7 +272,15 @@ export default class Send extends Component<Props, State> {
 
   confirmTransaction = (event: any) => {
     event.preventDefault();
-    const { sendToAddress, totalAmount, paymentID, darkMode } = this.state;
+    const {
+      sendToAddress,
+      totalAmount,
+      paymentID,
+      darkMode,
+      displayCurrency,
+      fiatSymbol,
+      symbolLocation
+    } = this.state;
     const { textColor } = uiType(darkMode);
     const sufficientFunds =
       (session.getUnlockedBalance() + session.getLockedBalance()) / 100 >=
@@ -270,7 +344,13 @@ export default class Send extends Component<Props, State> {
         <p className={`subtitle ${textColor}`}>
           <b>Amount (w/ fee):</b>
           <br />
+          {displayCurrency === 'fiat' &&
+            symbolLocation === 'prefix' &&
+            fiatSymbol}
           {totalAmount}
+          {displayCurrency === 'fiat' &&
+            symbolLocation === 'suffix' &&
+            fiatSymbol}
         </p>
         {paymentID !== '' && (
           <p className={`subtitle ${textColor}`}>
@@ -291,7 +371,16 @@ export default class Send extends Component<Props, State> {
   };
 
   sendTransaction = async () => {
-    const { loopTest } = this.state;
+    const {
+      loopTest,
+      displayCurrency,
+      fiatPrice,
+      transactionInProgress
+    } = this.state;
+
+    if (transactionInProgress) {
+      return;
+    }
 
     eventEmitter.emit('transactionInProgress');
 
@@ -301,11 +390,14 @@ export default class Send extends Component<Props, State> {
 
     const [hash, err] = await session.sendTransaction(
       sendToAddress,
-      Number(enteredAmount) * 100,
+      displayCurrency === 'NINJA'
+        ? Number(enteredAmount) * 100
+        : (Number(enteredAmount) * 100) / fiatPrice,
       paymentID
     );
     if (!loopTest) {
       if (hash) {
+        eventEmitter.emit('transaction');
         const message = (
           <div>
             <center>
@@ -348,6 +440,7 @@ export default class Send extends Component<Props, State> {
             'transactionCancel'
           );
         } else {
+          log.debug(err);
           const message = (
             <div>
               <center>
@@ -359,7 +452,6 @@ export default class Send extends Component<Props, State> {
               </p>
               <p className={`subtitle ${textColor}`}>{err.toString()}</p>
             </div>
-            // eslint-disable-next-line prettier/prettier
           );
           eventEmitter.emit(
             'openModal',
@@ -371,7 +463,6 @@ export default class Send extends Component<Props, State> {
         }
       }
     }
-    eventEmitter.emit('transaction');
     eventEmitter.emit('transactionCancel');
   };
 
@@ -384,6 +475,7 @@ export default class Send extends Component<Props, State> {
     const paymentID = this.generatePaymentID();
 
     await this.setState({
+      selectedContact: { label: sendToAddress, value: sendToAddress },
       enteredAmount: String(amount / 100),
       totalAmount: String((amount + 10) / 100),
       sendToAddress,
@@ -417,7 +509,8 @@ export default class Send extends Component<Props, State> {
       paymentID: '',
       enteredAmount: '',
       totalAmount: '',
-      sendToAddress: ''
+      sendToAddress: '',
+      selectedContact: null
     });
   };
 
@@ -463,13 +556,61 @@ export default class Send extends Component<Props, State> {
     });
   };
 
+  search(searchedValue: any, arrayToSearch: any[], objectPropertyName: string) {
+    for (let i = 0; i < arrayToSearch.length; i++) {
+      if (arrayToSearch[i][objectPropertyName] === searchedValue) {
+        return arrayToSearch[i];
+      }
+    }
+  }
+
+  checkInputLength = (input: string) => {
+    if (input.length > 1) {
+      this.setState({
+        menuIsOpen: true
+      });
+    } else {
+      this.setState({
+        menuIsOpen: false
+      });
+    }
+  };
+
+  handleAddressChange = (event: any) => {
+    if (event) {
+      // eslint-disable-next-line no-underscore-dangle
+      if (event.__isNew__ || event.__isDonate__) {
+        this.setState({
+          selectedContact: { label: event.value, value: event.value },
+          sendToAddress: event.value
+        });
+        return;
+      }
+
+      const { paymentID } = this.search(
+        event.value,
+        [donateInfo, ...addressList],
+        'address'
+      );
+
+      this.setState({
+        selectedContact: event,
+        sendToAddress: event.value,
+        paymentID: paymentID || ''
+      });
+    } else {
+      this.setState({
+        selectedContact: null
+      });
+    }
+  };
+
   roundDown(x: number) {
     return Math.floor(x * 100) / 100;
   }
 
   render() {
     const {
-      transactionComplete,
       darkMode,
       enteredAmount,
       totalAmount,
@@ -480,7 +621,10 @@ export default class Send extends Component<Props, State> {
       symbolLocation,
       sendToAddress,
       loopTest,
-      looping
+      looping,
+      pageAnimationIn,
+      selectedContact,
+      menuIsOpen
     } = this.state;
 
     const exampleAmount =
@@ -494,15 +638,36 @@ export default class Send extends Component<Props, State> {
       toolTipColor
     } = uiType(darkMode);
 
-    if (transactionComplete === true) {
-      return <Redirect to="/" />;
-    }
+    const addressInput = (
+      <a
+        href="#addressinput"
+        onClick={event => event.preventDefault()}
+        id="#addressinput"
+      >
+        <Creatable
+          multi
+          options={this.autoCompleteContacts}
+          placeholder="Enter a NinjaCoin address or a contact name to send funds to"
+          // eslint-disable-next-line no-unused-vars
+          noOptionsMessage={inputValue => null}
+          styles={customStyles}
+          isClearable
+          formatCreateLabel={value => {
+            return `Send to ${value}`;
+          }}
+          value={selectedContact}
+          onChange={this.handleAddressChange}
+          id="autoCompleteAddress"
+          menuIsOpen={menuIsOpen}
+          onInputChange={this.checkInputLength}
+        />
+      </a>
+    );
 
     return (
       <div>
         <Redirector />
-        <Modal darkMode={darkMode} />
-        <div className={`wholescreen ${backgroundColor}`}>
+        <div className={`wholescreen ${backgroundColor}  hide-scrollbar`}>
           <ReactTooltip
             effect="solid"
             type={toolTipColor}
@@ -510,9 +675,21 @@ export default class Send extends Component<Props, State> {
             place="top"
           />
           <NavBar darkMode={darkMode} />
-          <div className={`maincontent ${backgroundColor}`}>
+          <div className={`maincontent ${backgroundColor} ${pageAnimationIn}`}>
             <form onSubmit={this.confirmTransaction}>
               <div className="field">
+                <div className="control">
+                  <label
+                    className={`label ${textColor}`}
+                    htmlFor="autoCompleteAddress"
+                  >
+                    Send to
+                    {addressInput}
+                  </label>
+                </div>
+              </div>
+
+              <div className="field" hidden>
                 <label className={`label ${textColor}`} htmlFor="address">
                   {il8n.send_to_address}
                   <div className="control">
@@ -522,6 +699,7 @@ export default class Send extends Component<Props, State> {
                       placeholder={il8n.send_to_address_input_placeholder}
                       value={sendToAddress}
                       onChange={this.handleSendToAddressChange}
+                      id="address"
                     />
                   </div>
                 </label>
@@ -542,6 +720,7 @@ export default class Send extends Component<Props, State> {
                           })`}
                           value={enteredAmount}
                           onChange={this.handleAmountChange}
+                          id="amount"
                         />
                         <a
                           onClick={this.sendAll}
@@ -567,6 +746,7 @@ export default class Send extends Component<Props, State> {
                           placeholder={il8n.total_with_fees_input_placeholder}
                           value={totalAmount}
                           onChange={this.handleTotalAmountChange}
+                          id="totalamount"
                         />
                       </label>
                     </div>
@@ -583,6 +763,7 @@ export default class Send extends Component<Props, State> {
                       placeholder={il8n.payment_id_input_placeholder}
                       value={paymentID}
                       onChange={this.handlePaymentIDChange}
+                      id="paymentid"
                     />
                     <a
                       onClick={this.generatePaymentID}
@@ -609,7 +790,7 @@ export default class Send extends Component<Props, State> {
                 {transactionInProgress && (
                   <button
                     type="submit"
-                    className="button is-success is-large is-loading"
+                    className="button is-success is-large is-loading is-disabled"
                     disabled
                   >
                     <span className="icon is-small">
@@ -706,3 +887,8 @@ export default class Send extends Component<Props, State> {
     );
   }
 }
+
+Send.defaultProps = {
+  uriAddress: '',
+  uriPaymentID: ''
+};

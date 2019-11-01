@@ -1,14 +1,14 @@
-// @flow
-//
 // Copyright (C) 2019 ExtraHash
 //
 // Please see the included LICENSE file for more information.
 
 import React, { Component } from 'react';
-import { Link, withRouter } from 'react-router-dom';
+import log from 'electron-log';
+import { Link, Redirect, withRouter } from 'react-router-dom';
 import routes from '../constants/routes';
 import { session, eventEmitter, il8n, loginCounter, config } from '../index';
 import uiType from '../utils/uitype';
+import Modal from './Modal';
 
 type Location = {
   hash: string,
@@ -18,11 +18,15 @@ type Location = {
 
 type Props = {
   location: Location,
-  darkMode: boolean
+  darkMode: boolean,
+  query?: string
 };
 
 type State = {
-  navBarCount: number
+  navBarCount: number,
+  terminalActive: boolean,
+  query: string,
+  submitSearch: boolean
 };
 
 class NavBar extends Component<Props, State> {
@@ -32,37 +36,86 @@ class NavBar extends Component<Props, State> {
 
   activityTimer: IntervalID;
 
+  static defaultProps: any;
+
   constructor(props?: Props) {
     super(props);
     this.state = {
-      navBarCount: loginCounter.navBarCount
+      navBarCount: loginCounter.navBarCount,
+      terminalActive:
+        config.useLocalDaemon ||
+        config.logLevel !== 'DISABLED' ||
+        loginCounter.daemonFailedInit,
+      query: props.query || '',
+      submitSearch: false
     };
     this.logOut = this.logOut.bind(this);
+    this.refreshTerminalStatus = this.refreshTerminalStatus.bind(this);
+    this.handleQueryChange = this.handleQueryChange.bind(this);
+    this.handleSearch = this.handleSearch.bind(this);
   }
 
   componentDidMount() {
+    eventEmitter.on('logLevelChanged', this.refreshTerminalStatus);
     loginCounter.navBarCount++;
   }
 
   componentWillUnmount() {
+    eventEmitter.off('logLevelChanged', this.refreshTerminalStatus);
     if (session.walletPassword !== '') {
       clearInterval(this.activityTimer);
     }
   }
 
+  refreshTerminalStatus = () => {
+    this.setState({
+      terminalActive:
+        config.useLocalDaemon ||
+        config.logLevel !== 'DISABLED' ||
+        loginCounter.daemonFailedInit
+    });
+  };
+
   logOut = () => {
     eventEmitter.emit('logOut');
+  };
+
+  handleQueryChange = (event: any) => {
+    this.setState({
+      query: event.target.value,
+      submitSearch: false
+    });
+  };
+
+  handleSearch = (event: any) => {
+    event.preventDefault();
+    const { query } = this.state;
+
+    if (query === '') {
+      return;
+    }
+
+    log.debug(`User searched for ${query}`);
+
+    this.setState({
+      submitSearch: true
+    });
   };
 
   render() {
     // prettier-ignore
     const { location: { pathname }, darkMode } = this.props;
-    const { navBarCount } = this.state;
+    const { navBarCount, terminalActive, query, submitSearch } = this.state;
     const { fillColor, elementBaseColor, settingsCogColor } = uiType(darkMode);
-    const { useLocalDaemon } = config;
+
+    if (submitSearch && pathname !== `/search/${query}`) {
+      const userSearchTerm = query;
+      return <Redirect to={`/search/${userSearchTerm}`} />;
+    }
 
     return (
       <div>
+        <Modal darkMode={darkMode} />
         <div
           className={
             navBarCount > 0
@@ -98,10 +151,12 @@ class NavBar extends Component<Props, State> {
 
                   <Link className="navbar-item" to={routes.SEND}>
                     <i className="fa fa-paper-plane" />
-                    {pathname === '/send' && (
+                    {pathname.includes('/send') && (
                       <strong>&nbsp;&nbsp;{il8n.send}</strong>
                     )}
-                    {pathname !== '/send' && <p>&nbsp;&nbsp;{il8n.send}</p>}
+                    {!pathname.includes('/send') && (
+                      <p>&nbsp;&nbsp;{il8n.send}</p>
+                    )}
                   </Link>
 
                   <Link className="navbar-item" to={routes.RECEIVE}>
@@ -113,7 +168,18 @@ class NavBar extends Component<Props, State> {
                       <p>&nbsp;&nbsp;{il8n.receive}</p>
                     )}
                   </Link>
-                  {useLocalDaemon && (
+
+                  <Link className="navbar-item" to={routes.ADDRESSBOOK}>
+                    <i className="fas fa-address-book" />
+                    {pathname === '/addressbook' && (
+                      <strong>&nbsp;&nbsp;Address Book</strong>
+                    )}
+                    {pathname !== '/addressbook' && (
+                      <p>&nbsp;&nbsp;Address Book</p>
+                    )}
+                  </Link>
+
+                  {terminalActive && (
                     <Link className="navbar-item" to={routes.TERMINAL}>
                       <i className="fas fa-terminal" />
                       {pathname === '/terminal' && (
@@ -124,6 +190,29 @@ class NavBar extends Component<Props, State> {
                   )}
                 </div>
                 <div className="navbar-end">
+                  <div className="navbar-item">
+                    <form onSubmit={this.handleSearch}>
+                      <div className="field has-addons">
+                        <div className="control is-expanded">
+                          <input
+                            className="input is-medium"
+                            type="text"
+                            placeholder="Search for anything..."
+                            value={query}
+                            onChange={this.handleQueryChange}
+                          />
+                        </div>
+                        <div className="control">
+                          <button
+                            className={`button ${settingsCogColor} is-medium`}
+                            type="submit"
+                          >
+                            <i className="fas fa-search" />
+                          </button>
+                        </div>
+                      </div>
+                    </form>
+                  </div>
                   {session.walletPassword !== '' && (
                     <div className="navbar-item">
                       <Link className="buttons" to={routes.LOGIN}>
@@ -178,5 +267,8 @@ class NavBar extends Component<Props, State> {
   }
 }
 
-// $FlowFixMe
+NavBar.defaultProps = {
+  query: ''
+};
+
 export default withRouter(NavBar);

@@ -1,5 +1,3 @@
-// @flow
-//
 // Copyright (C) 2019 ExtraHash
 //
 // Please see the included LICENSE file for more information.
@@ -20,7 +18,7 @@ export default class AutoUpdater {
       log.debug('Checking for updates...');
       const options = {
         method: 'GET',
-        url: `https://api.getproton.org/latest/${operatingSystem}/${currentVersion}/${arch}`,
+        url: ``,
         json: true
       };
       request(options, (error, response, body) => {

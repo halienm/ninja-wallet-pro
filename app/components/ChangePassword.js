@@ -1,20 +1,18 @@
-// @flow
-//
 // Copyright (C) 2019 ExtraHash
 //
 // Please see the included LICENSE file for more information.
 import React, { Component } from 'react';
-import { config, session, eventEmitter, il8n } from '../index';
+import { config, session, eventEmitter, il8n, loginCounter } from '../index';
 import NavBar from './NavBar';
 import BottomBar from './BottomBar';
 import Redirector from './Redirector';
-import Modal from './Modal';
 import uiType from '../utils/uitype';
 
 type Props = {};
 
 type State = {
-  darkMode: boolean
+  darkMode: boolean,
+  pageAnimationIn: string
 };
 
 export default class ChangePassword extends Component<Props, State> {
@@ -25,7 +23,8 @@ export default class ChangePassword extends Component<Props, State> {
   constructor(props?: Props) {
     super(props);
     this.state = {
-      darkMode: session.darkMode
+      darkMode: session.darkMode,
+      pageAnimationIn: loginCounter.getAnimation('/changepassword')
     };
     this.handleSubmit = this.handleSubmit.bind(this);
   }
@@ -105,16 +104,15 @@ export default class ChangePassword extends Component<Props, State> {
   };
 
   render() {
-    const { darkMode } = this.state;
+    const { darkMode, pageAnimationIn } = this.state;
     const { backgroundColor, fillColor, textColor } = uiType(darkMode);
 
     return (
       <div>
         <Redirector />
-        <Modal darkMode={darkMode} />
         <div className={`wholescreen ${fillColor}`}>
           <NavBar darkMode={darkMode} />
-          <div className={`maincontent ${backgroundColor}`}>
+          <div className={`maincontent ${backgroundColor} ${pageAnimationIn}`}>
             <form onSubmit={this.handleSubmit}>
               {session.walletPassword !== '' && (
                 <div className="field">

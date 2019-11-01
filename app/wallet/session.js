@@ -1,5 +1,3 @@
-// @flow
-//
 // Copyright (C) 2019 ExtraHash
 //
 // Please see the included LICENSE file for more information.
@@ -11,7 +9,7 @@ import {
   Config
 } from 'turtlecoin-wallet-backend';
 import log from 'electron-log';
-import fs from 'fs';
+import fs, { WriteStream } from 'fs';
 import { createObjectCsvWriter } from 'csv-writer';
 import { config, directories, eventEmitter, loginCounter } from '../index';
 import { name, version } from '../../package.json';
@@ -47,6 +45,15 @@ export default class WalletSession {
 
   fiatPrice: number;
 
+  backendLog: string[];
+
+  logStream: WriteStream = fs.createWriteStream(
+    `${directories[1]}/wallet-backend.log`,
+    {
+      flags: 'a'
+    }
+  );
+
   constructor(password?: string, daemonHost?: string, daemonPort?: string) {
     this.loginFailed = false;
     this.firstStartup = false;
@@ -60,7 +67,8 @@ export default class WalletSession {
     this.wbConfig = {
       scanCoinbaseTransactions: config.scanCoinbaseTransactions,
       customUserAgentString: `${name}-v${version}`,
-      requestTimeout: 20 * 1000
+      requestTimeout: 1000 * 30,
+      customRequestOptions: { pool: { maxSockets: 100 }, agent: false }
     };
 
     this.selectedFiat = config.selectedFiat;
@@ -69,12 +77,7 @@ export default class WalletSession {
 
     this.getFiatPrice(this.selectedFiat);
 
-    const { useLocalDaemon } = config;
-
-    this.daemon = new Daemon(
-      useLocalDaemon ? '127.0.0.1' : this.daemonHost,
-      useLocalDaemon ? 11898 : this.daemonPort
-    );
+    this.daemon = new Daemon(this.daemonHost, this.daemonPort);
 
     if (this.walletFile === '') {
       this.firstStartup = true;
@@ -102,6 +105,8 @@ export default class WalletSession {
         if (loginCounter.loginsAttempted > 0) {
           loginCounter.lastLoginAttemptFailed = true;
         }
+      } else {
+        throw new Error(error);
       }
     }
     if (!this.loginFailed && !this.firstStartup) {
@@ -112,39 +117,16 @@ export default class WalletSession {
       this.syncStatus = this.getSyncStatus();
       this.address = this.wallet.getPrimaryAddress();
 
-      let logLevel;
-
-      switch (config.logLevel) {
-        case 'DEBUG':
-          logLevel = LogLevel.DEBUG;
-          break;
-        case 'ERROR':
-          logLevel = LogLevel.ERROR;
-          break;
-        case 'INFO':
-          logLevel = LogLevel.INFO;
-          break;
-        case 'WARNING':
-          logLevel = LogLevel.WARNING;
-          break;
-        case 'TRACE':
-          logLevel = LogLevel.TRACE;
-          break;
-        default:
-          logLevel = LogLevel.DISABLED;
-          break;
-      }
-
+      this.backendLog = [];
+      const logLevel = this.evaluateLogLevel(config.logLevel);
       this.wallet.setLogLevel(logLevel);
-
       this.wallet.setLoggerCallback(prettyMessage => {
-        const logStream = fs.createWriteStream(
-          `${directories[1]}/wallet-backend.log`,
-          {
-            flags: 'a'
-          }
-        );
-        logStream.write(`${prettyMessage}\n`);
+        this.logStream.write(`${prettyMessage}\n`);
+        this.backendLog.unshift(prettyMessage);
+        if (this.backendLog.length > 1000) {
+          this.backendLog.pop();
+        }
+        eventEmitter.emit('refreshBackendLog');
       });
 
       setInterval(() => this.startAutoSave(), 1000 * 60 * 5);
@@ -188,6 +170,23 @@ export default class WalletSession {
     await this.saveWallet(this.walletFile);
   }
 
+  evaluateLogLevel(logLevel: string) {
+    switch (logLevel) {
+      case 'DEBUG':
+        return LogLevel.DEBUG;
+      case 'ERROR':
+        return LogLevel.ERROR;
+      case 'INFO':
+        return LogLevel.INFO;
+      case 'WARNING':
+        return LogLevel.WARNING;
+      case 'TRACE':
+        return LogLevel.TRACE;
+      default:
+        return LogLevel.DISABLED;
+    }
+  }
+
   toggleDarkMode(status: boolean) {
     const programDirectory = directories[0];
     const modifyConfig = config;
@@ -226,8 +225,6 @@ export default class WalletSession {
 
   modifyConfig(propertyName: string, value: any) {
     const programDirectory = directories[0];
-    const modifiedConfig = config;
-    modifiedConfig[propertyName] = value;
     log.debug(`Config update: ${propertyName} set to ${value.toString()}`);
     config[propertyName] = value;
     fs.writeFileSync(
@@ -244,7 +241,7 @@ export default class WalletSession {
   exportToCSV(savePath: string) {
     const rawTransactions = this.getTransactions(undefined, undefined, false);
     const csvWriter = createObjectCsvWriter({
-      path: `${savePath}.csv`,
+      path: savePath,
       header: [
         { id: 'date', title: 'Date' },
         { id: 'blockHeight', title: 'Block Height' },
@@ -305,9 +302,8 @@ export default class WalletSession {
     return true;
   }
 
-  handleNewWallet(filename: string) {
-    const newWallet = WalletBackend.createWallet(this.daemon, this.wbConfig);
-    const saved = newWallet.saveWalletToFile(filename, '');
+  handleNewWallet(wallet: any, filename: string, password: string) {
+    const saved = wallet.saveWalletToFile(filename, password);
     if (!saved) {
       log.debug('Failed to save wallet!');
       return false;
@@ -406,7 +402,9 @@ export default class WalletSession {
         balance,
         tx.blockHeight,
         tx.paymentID,
-        index
+        index,
+        tx.fee,
+        tx.unlockTime
       ]);
       balance -= parseInt(tx.totalAmount(), 10);
     }
@@ -561,12 +559,13 @@ export default class WalletSession {
   }
 
   formatLikeCurrency(x: number) {
-    return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const parts = x.toString().split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return parts.join('.');
   }
 
   atomicToHuman(x: number, prettyPrint?: boolean) {
     if (prettyPrint || false) {
-      // $FlowFixMe
       return `${this.formatLikeCurrency((x / 100).toFixed(2))}`;
     }
     return x / 100;

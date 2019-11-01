@@ -1,13 +1,10 @@
-// @flow
-//
 // Copyright (C) 2019 ExtraHash
 //
 // Please see the included LICENSE file for more information.
-import path from 'path';
 import os from 'os';
 import log from 'electron-log';
 import { Tail } from 'tail';
-import { directories, eventEmitter } from '../index';
+import { eventEmitter } from '../index';
 
 export default class DaemonLogger {
   daemonLog: string[];
@@ -16,13 +13,13 @@ export default class DaemonLogger {
 
   daemonLogTail: Tail;
 
-  constructor() {
+  constructor(logPath: string) {
     this.daemonLog = [];
-    this.daemonLogPath = path.resolve(directories[1], 'NinjaCoind.log');
+    this.daemonLogPath = logPath;
 
     const tailOptions = {
       separator: /[\r]{0,1}\n/,
-      fromBeginning: true,
+      fromBeginning: false,
       fsWatchOptions: {},
       follow: true,
       useWatchFile: os.platform() === 'win32',
@@ -33,8 +30,15 @@ export default class DaemonLogger {
     this.daemonLogTail.on('line', data => this.pushToLog(data));
   }
 
+  stopTail() {
+    this.daemonLogTail.unwatch();
+  }
+
   pushToLog = (data: string) => {
     this.daemonLog.unshift(data);
+    if (this.daemonLog.length > 1000) {
+      this.daemonLog.pop();
+    }
     eventEmitter.emit('refreshConsole');
   };
 }

@@ -1,5 +1,3 @@
-// @flow
-//
 // Copyright (C) 2019 ExtraHash
 //
 // Please see the included LICENSE file for more information.
@@ -37,56 +35,27 @@ export default class Modal extends Component<Props, State> {
     this.openModal = this.openModal.bind(this);
     this.confirmModal = this.confirmModal.bind(this);
     this.extraAction = this.extraAction.bind(this);
+    this.handleEsc = this.handleEsc.bind(this);
   }
 
   componentWillMount() {
-    eventEmitter.on(
-      'openModal',
-      (
-        message,
-        confirmLabel,
-        denyLabel,
-        confirmAction,
-        extraLabel,
-        extraAction
-      ) =>
-        this.openModal(
-          message,
-          confirmLabel,
-          denyLabel,
-          confirmAction,
-          extraLabel,
-          extraAction
-        )
-    );
+    eventEmitter.on('openModal', this.openModal);
   }
 
   componentWillUnmount() {
-    eventEmitter.off(
-      'openModal',
-      (
-        message,
-        confirmLabel,
-        denyLabel,
-        confirmAction,
-        extraLabel,
-        extraAction
-      ) =>
-        this.openModal(
-          message,
-          confirmLabel,
-          denyLabel,
-          confirmAction,
-          extraLabel,
-          extraAction
-        )
-    );
+    eventEmitter.off('openModal', this.openModal);
   }
 
   closeModal = () => {
     this.setState({
       isActive: ''
     });
+  };
+
+  handleEsc = (event: any) => {
+    if (event.key === 'Escape') {
+      this.closeModal();
+    }
   };
 
   confirmModal = () => {
@@ -135,7 +104,13 @@ export default class Modal extends Component<Props, State> {
     const { backgroundColor } = uiType(darkMode);
 
     return (
-      <div className={`modal ${isActive} fadein`}>
+      <div
+        className={`modal ${isActive} fadein`}
+        onKeyDown={event => this.handleEsc(event)}
+        role="button"
+        tabIndex={0}
+        onMouseDown={event => event.preventDefault()}
+      >
         <div
           className="modal-background"
           onClick={this.closeModal}

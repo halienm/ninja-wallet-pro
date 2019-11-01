@@ -1,5 +1,3 @@
-// @flow
-//
 // Copyright (C) 2019 ExtraHash
 //
 // Please see the included LICENSE file for more information.
@@ -8,6 +6,7 @@ import log from 'electron-log';
 import { ipcRenderer } from 'electron';
 import { Redirect, withRouter } from 'react-router-dom';
 import { session, eventEmitter, loginCounter, config } from '../index';
+import donateInfo from '../constants/donateInfo.json';
 
 type State = {
   home: boolean,
@@ -20,7 +19,10 @@ type State = {
   isLoggedIn: boolean,
   freshRestore: boolean,
   autoLockInterval: number,
-  autoLockEnabled: boolean
+  autoLockEnabled: boolean,
+  settings: boolean,
+  newWallet: boolean,
+  donate: boolean
 };
 
 type Location = {
@@ -40,6 +42,8 @@ class Redirector extends Component<Props, State> {
 
   activityTimer: TimeoutID;
 
+  refreshPrice: IntervalID;
+
   constructor(props?: Props) {
     super(props);
     this.state = {
@@ -53,16 +57,23 @@ class Redirector extends Component<Props, State> {
       isLoggedIn: loginCounter.isLoggedIn,
       freshRestore: loginCounter.freshRestore,
       autoLockInterval: config.autoLockInterval,
-      autoLockEnabled: config.autoLockEnabled
+      autoLockEnabled: config.autoLockEnabled,
+      settings: false,
+      newWallet: false,
+      donate: false
     };
     const { autoLockInterval, autoLockEnabled } = this.state;
     this.goToImportFromSeed = this.goToImportFromSeed.bind(this);
     this.goToImportFromKey = this.goToImportFromKey.bind(this);
     this.goToPasswordChange = this.goToPasswordChange.bind(this);
+    this.goToSettings = this.goToSettings.bind(this);
     this.goToHome = this.goToHome.bind(this);
     this.goToLogin = this.goToLogin.bind(this);
     this.logOut = this.logOut.bind(this);
     this.setAutoLock = this.setAutoLock.bind(this);
+    this.goToNewWallet = this.goToNewWallet.bind(this);
+    this.goToDonate = this.goToDonate.bind(this);
+
     if (
       session.walletPassword !== '' &&
       loginCounter.isLoggedIn &&
@@ -72,6 +83,9 @@ class Redirector extends Component<Props, State> {
         () => this.logOut(),
         1000 * 60 * autoLockInterval
       );
+    }
+    if (config.displayCurrency === 'fiat') {
+      this.refreshPrice = setInterval(this.getPrice, 1000 * 30);
     }
   }
 
@@ -92,6 +106,19 @@ class Redirector extends Component<Props, State> {
     eventEmitter.on('activityDetected', this.resetTimeout);
     eventEmitter.on('newLockInterval', this.resetTimeout);
     eventEmitter.on('setAutoLock', this.setAutoLock);
+    eventEmitter.on('goToSettings', this.goToSettings);
+    eventEmitter.on('goToNewWallet', this.goToNewWallet);
+    eventEmitter.on('goToDonate', this.goToDonate);
+
+    // prettier-ignore
+    const { location: { pathname } } = this.props;
+    const splitPath = pathname.split('/');
+    const cleanPath = `/${splitPath[1]}`;
+
+    loginCounter.pageFocusStack.unshift(cleanPath);
+    if (loginCounter.pageFocusStack.length > 1) {
+      loginCounter.pageFocusStack.pop();
+    }
   }
 
   componentWillUnmount() {
@@ -111,8 +138,28 @@ class Redirector extends Component<Props, State> {
     eventEmitter.off('activityDetected', this.resetTimeout);
     eventEmitter.off('newLockInterval', this.resetTimeout);
     eventEmitter.off('setAutoLock', this.setAutoLock);
+    eventEmitter.off('goToSettings', this.goToSettings);
+    eventEmitter.off('goToNewWallet', this.goToNewWallet);
+    eventEmitter.off('goToDonate', this.goToDonate);
     clearTimeout(this.activityTimer);
+    clearInterval(this.refreshPrice);
   }
+
+  goToDonate = () => {
+    this.setState({
+      donate: true
+    });
+  };
+
+  goToNewWallet = () => {
+    this.setState({
+      newWallet: true
+    });
+  };
+
+  getPrice = () => {
+    session.getFiatPrice(config.selectedFiat);
+  };
 
   setAutoLock = async (enable: boolean) => {
     if (enable) {
@@ -155,6 +202,12 @@ class Redirector extends Component<Props, State> {
         1000 * 60 * autoLockInterval
       );
     }
+  };
+
+  goToSettings = () => {
+    this.setState({
+      settings: true
+    });
   };
 
   goToLogin = () => {
@@ -205,7 +258,10 @@ class Redirector extends Component<Props, State> {
       home,
       login,
       isLoggedIn,
-      freshRestore
+      freshRestore,
+      settings,
+      newWallet,
+      donate
     } = this.state;
     if (freshRestore === true && pathname !== '/changepassword') {
       loginCounter.freshRestore = false;
@@ -218,6 +274,10 @@ class Redirector extends Component<Props, State> {
       return <Redirect to="/changepassword" />;
     }
 
+    if (settings === true && pathname !== '/settings') {
+      return <Redirect to="/settings" />;
+    }
+
     if (importKey === true && pathname !== '/importkey') {
       return <Redirect to="/importkey" />;
     }
@@ -226,12 +286,23 @@ class Redirector extends Component<Props, State> {
       return <Redirect to="/import" />;
     }
 
+    if (newWallet === true && pathname !== '/newwallet') {
+      return <Redirect to="/newwallet" />;
+    }
+
+    if (donate === true && !pathname.includes('/send')) {
+      return (
+        <Redirect to={`/send/${donateInfo.address}/${donateInfo.paymentID}`} />
+      );
+    }
+
     if (
       loginFailed === true &&
       pathname !== '/login' &&
       pathname !== '/import' &&
       pathname !== '/importkey' &&
-      pathname !== '/firststartup'
+      pathname !== '/firststartup' &&
+      pathname !== '/newwallet'
     ) {
       return <Redirect to="/login" />;
     }
@@ -245,7 +316,8 @@ class Redirector extends Component<Props, State> {
       pathname !== '/login' &&
       pathname !== '/import' &&
       pathname !== '/importkey' &&
-      pathname !== '/firststartup'
+      pathname !== '/firststartup' &&
+      pathname !== '/newwallet'
     ) {
       return <Redirect to="/login" />;
     }
@@ -254,7 +326,8 @@ class Redirector extends Component<Props, State> {
       firstStartup === true &&
       pathname !== '/firststartup' &&
       pathname !== '/import' &&
-      pathname !== '/importkey'
+      pathname !== '/importkey' &&
+      pathname !== '/newwallet'
     ) {
       return <Redirect to="/firststartup" />;
     }
@@ -263,5 +336,4 @@ class Redirector extends Component<Props, State> {
   }
 }
 
-// $FlowFixMe
 export default withRouter(Redirector);

@@ -10,7 +10,6 @@
   "plugins": ["header"],
   "rules": {
     "import/no-mutable-exports": "off",
-    "flowtype/no-weak-types": "off",
     "class-methods-use-this": "off",
     "jsx-a11y/label-has-for": "off",
     "no-plusplus": "off",
@@ -24,6 +23,9 @@
       true,
       { "button": true, "submit": true, "reset": true }
     ],
-    "header/header": [2, "app/constants/header.js"]
+    "header/header": [2, "app/constants/header.js"],
+    "react/no-array-index-key": false,
+    "global-require": 0,
+    "flowtype/no-weak-types": "off"
   }
 }

@@ -8,5 +8,7 @@
   "LOGIN": "/login",
   "CHANGEPASSWORD": "/changepassword",
   "FIRSTSTARTUP": "/firststartup",
-  "TERMINAL": "/terminal"
+  "TERMINAL": "/terminal",
+  "ADDRESSBOOK": "/addressbook",
+  "NEWWALLET": "/newwallet"
 }

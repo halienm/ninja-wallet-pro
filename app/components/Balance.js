@@ -1,5 +1,3 @@
-// @flow
-//
 // Copyright (C) 2019 ExtraHash
 //
 // Please see the included LICENSE file for more information.
@@ -128,13 +126,18 @@ export default class Balance extends Component<Props, State> {
       displayCurrency === 'fiat'
     ) {
       balanceTooltip =
-        `Unlocked: ${fiatSymbol}${(
-          fiatPrice * session.atomicToHuman(unlockedBalance, false)
-        ).toFixed(fiatDecimals)}
+        `Unlocked: ${fiatSymbol}${session.formatLikeCurrency(
+          Number(
+            fiatPrice * session.atomicToHuman(unlockedBalance, false)
+          ).toFixed(fiatDecimals)
+        )}
         <br>` +
-        `Locked: ${fiatSymbol}${(
-          fiatPrice * session.atomicToHuman(lockedBalance, false)
-        ).toFixed(fiatDecimals)}`;
+        `Locked: ${fiatSymbol}${session.formatLikeCurrency(
+          Number(
+            fiatPrice * session.atomicToHuman(lockedBalance, false)
+          ).toFixed(fiatDecimals)
+        )}
+        <br>`;
     } else if (
       session.wallet &&
       symbolLocation === 'suffix' &&
@@ -200,10 +203,17 @@ export default class Balance extends Component<Props, State> {
               {fiatPrice !== 0 ? (
                 // eslint-disable-next-line prefer-template
                 fiatSymbol +
-                (
-                  fiatPrice *
-                  session.atomicToHuman(unlockedBalance + lockedBalance, false)
-                ).toFixed(fiatDecimals)
+                session.formatLikeCurrency(
+                  Number(
+                    (
+                      fiatPrice *
+                      session.atomicToHuman(
+                        unlockedBalance + lockedBalance,
+                        false
+                      )
+                    ).toFixed(fiatDecimals)
+                  )
+                )
               ) : (
                 <ReactLoading
                   type="bubbles"
@@ -231,11 +241,17 @@ export default class Balance extends Component<Props, State> {
               &nbsp;
               {fiatPrice !== 0 ? (
                 // eslint-disable-next-line prefer-template
-
-                (
-                  fiatPrice *
-                  session.atomicToHuman(unlockedBalance + lockedBalance, false)
-                ).toFixed(fiatDecimals) + fiatSymbol
+                session.formatLikeCurrency(
+                  Number(
+                    (
+                      fiatPrice *
+                      session.atomicToHuman(
+                        unlockedBalance + lockedBalance,
+                        false
+                      )
+                    ).toFixed(fiatDecimals)
+                  )
+                ) + fiatSymbol
               ) : (
                 <ReactLoading
                   type="bubbles"

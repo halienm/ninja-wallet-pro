@@ -1,11 +1,8 @@
-// @flow
-//
 // Copyright (C) 2019 ExtraHash
 //
 // Please see the included LICENSE file for more information.
 import React, { Component } from 'react';
 import { config, session, eventEmitter } from '../index';
-import Modal from './Modal';
 import uiType from '../utils/uitype';
 
 type Props = {
@@ -100,7 +97,6 @@ export default class TimeoutSelector extends Component<Props, State> {
     const { textColor } = uiType(darkMode);
     return (
       <div>
-        <Modal darkMode={darkMode} />
         <p className={`has-text-weight-bold ${textColor}`}>
           Autolock Time Interval (in minutes):
         </p>

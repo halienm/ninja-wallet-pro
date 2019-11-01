@@ -1,5 +1,3 @@
-// @flow
-//
 // Copyright (C) 2019 ExtraHash
 //
 // Please see the included LICENSE file for more information.
@@ -27,7 +25,7 @@ type State = {
   darkMode: boolean
 };
 
-export default class Send extends Component<Props, State> {
+export default class ImportKey extends Component<Props, State> {
   props: Props;
 
   state: State;
@@ -62,7 +60,13 @@ export default class Send extends Component<Props, State> {
       height = '0';
     }
     const options = {
-      defaultPath: remote.app.getPath('documents')
+      defaultPath: remote.app.getPath('documents'),
+      filters: [
+        {
+          name: 'NinjaCoin Wallet File (v0)',
+          extensions: ['wallet']
+        }
+      ]
     };
     const savePath = remote.dialog.showSaveDialog(null, options);
     if (savePath === undefined) {

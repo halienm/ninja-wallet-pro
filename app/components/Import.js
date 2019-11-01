@@ -1,5 +1,3 @@
-// @flow
-//
 // Copyright (C) 2019 ExtraHash
 //
 // Please see the included LICENSE file for more information.
@@ -10,7 +8,6 @@ import log from 'electron-log';
 import NavBar from './NavBar';
 import BottomBar from './BottomBar';
 import Redirector from './Redirector';
-import Modal from './Modal';
 import uiType from '../utils/uitype';
 import {
   config,
@@ -28,7 +25,7 @@ type States = {
   darkMode: boolean
 };
 
-export default class Send extends Component<Props, States> {
+export default class Import extends Component<Props, States> {
   props: Props;
 
   states: States;
@@ -62,7 +59,13 @@ export default class Send extends Component<Props, States> {
       height = '0';
     }
     const options = {
-      defaultPath: remote.app.getPath('documents')
+      defaultPath: remote.app.getPath('documents'),
+      filters: [
+        {
+          name: 'NinjaCoin Wallet File (v0)',
+          extensions: ['wallet']
+        }
+      ]
     };
     const savePath = remote.dialog.showSaveDialog(null, options);
     if (savePath === undefined) {
@@ -132,7 +135,6 @@ export default class Send extends Component<Props, States> {
     return (
       <div>
         <Redirector />
-        <Modal darkMode={darkMode} />
         <div className={`wholescreen ${backgroundColor}`}>
           <NavBar darkMode={darkMode} />
           <div className={`maincontent ${backgroundColor}`}>

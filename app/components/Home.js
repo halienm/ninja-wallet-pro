@@ -1,16 +1,14 @@
-// @flow
-//
 // Copyright (C) 2019 ExtraHash
 //
 // Please see the included LICENSE file for more information.
 import log from 'electron-log';
-import React, { Component } from 'react';
+import { remote } from 'electron';
+import React, { Component, Fragment } from 'react';
 import ReactTooltip from 'react-tooltip';
 import { session, eventEmitter, il8n, loginCounter, config } from '../index';
 import NavBar from './NavBar';
 import BottomBar from './BottomBar';
 import Redirector from './Redirector';
-import Modal from './Modal';
 import uiType from '../utils/uitype';
 
 let displayedTransactionCount: number = 50;
@@ -25,7 +23,9 @@ type State = {
   fiatPrice: number,
   fiatSymbol: string,
   symbolLocation: string,
-  fiatDecimals: number
+  fiatDecimals: number,
+  pageAnimationIn: string,
+  expandedRows: string[]
 };
 
 export default class Home extends Component<Props, State> {
@@ -47,13 +47,17 @@ export default class Home extends Component<Props, State> {
       fiatPrice: session.fiatPrice,
       fiatSymbol: config.fiatSymbol,
       symbolLocation: config.symbolLocation,
-      fiatDecimals: config.fiatDecimals
+      fiatDecimals: config.fiatDecimals,
+      pageAnimationIn: loginCounter.getAnimation('/'),
+      expandedRows: []
     };
     this.refreshListOnNewTransaction = this.refreshListOnNewTransaction.bind(
       this
     );
     this.openNewWallet = this.openNewWallet.bind(this);
     this.modifyCurrency = this.modifyCurrency.bind(this);
+    this.expandRow = this.expandRow.bind(this);
+    this.openInExplorer = this.openInExplorer.bind(this);
   }
 
   componentDidMount() {
@@ -82,6 +86,14 @@ export default class Home extends Component<Props, State> {
     eventEmitter.off('gotFiatPrice', this.updateFiatPrice);
     eventEmitter.off('modifyCurrency', this.modifyCurrency);
   }
+
+  openInExplorer = (event: any) => {
+    const hash = event.target.value;
+
+    remote.shell.openExternal(
+      `http://explorer.ninjacoin.org/?hash=${encodeURIComponent(hash)}#blockchain_transaction`
+    );
+  };
 
   modifyCurrency = (displayCurrency: string) => {
     this.setState({
@@ -149,6 +161,22 @@ export default class Home extends Component<Props, State> {
     });
   };
 
+  expandRow = (event: any) => {
+    const transactionHash = event.target.value;
+    const { expandedRows } = this.state;
+    if (!expandedRows.includes(transactionHash)) {
+      expandedRows.push(transactionHash);
+    } else {
+      const index = expandedRows.indexOf(transactionHash);
+      if (index > -1) {
+        expandedRows.splice(index, 1);
+      }
+    }
+    this.setState({
+      expandedRows
+    });
+  };
+
   render() {
     const {
       darkMode,
@@ -158,16 +186,21 @@ export default class Home extends Component<Props, State> {
       displayCurrency,
       fiatSymbol,
       symbolLocation,
-      fiatDecimals
+      fiatDecimals,
+      pageAnimationIn,
+      expandedRows
     } = this.state;
-    const { backgroundColor, textColor, tableMode, toolTipColor } = uiType(
-      darkMode
-    );
-
+    const {
+      backgroundColor,
+      textColor,
+      tableMode,
+      toolTipColor,
+      elementBaseColor,
+      fillColor
+    } = uiType(darkMode);
     return (
       <div>
         <Redirector />
-        <Modal darkMode={darkMode} />
         <div className={`wholescreen ${backgroundColor}`}>
           <ReactTooltip
             effect="solid"
@@ -177,17 +210,14 @@ export default class Home extends Component<Props, State> {
           />
           <NavBar darkMode={darkMode} />
           <div
-            className={
-              loginCounter.navBarCount > 0
-                ? `maincontent-homescreen ${backgroundColor}`
-                : `maincontent-homescreen-fadein ${backgroundColor}`
-            }
+            className={`maincontent-homescreen ${backgroundColor} ${pageAnimationIn}`}
           >
             <table
               className={`table is-striped is-hoverable is-fullwidth is-family-monospace ${tableMode}`}
             >
               <thead>
                 <tr>
+                  <th />
                   <th className={textColor}>{il8n.date}</th>
                   <th className={textColor}>{il8n.hash}</th>
                   <th className={`has-text-right ${textColor}`}>
@@ -200,87 +230,208 @@ export default class Home extends Component<Props, State> {
               </thead>
               <tbody>
                 {transactions.map(tx => {
+                  const rowIsExpanded = expandedRows.includes(tx[1]);
+                  const transactionHash = tx[1];
+                  const toggleSymbol = rowIsExpanded ? '-' : '+';
                   return (
-                    <tr key={tx[1]}>
-                      <td
-                        data-tip={
-                          tx[0] === 0
-                            ? il8n.unconfirmed_tx_30_sec_confirm
-                            : `${il8n.block} ${tx[4]}`
-                        }
-                      >
-                        {tx[0] === 0 && (
-                          <p className="has-text-danger">{il8n.unconfirmed}</p>
-                        )}
-                        {tx[0] > 0 && <p>{session.convertTimestamp(tx[0])}</p>}
-                      </td>
-                      <td>{tx[1]}</td>
-                      {tx[2] < 0 && (
+                    <Fragment key={transactionHash}>
+                      <tr>
                         <td>
-                          <p className="has-text-danger has-text-right">
-                            {displayCurrency === 'NINJA' &&
-                              session.atomicToHuman(tx[2], true)}
-                            {displayCurrency === 'fiat' &&
-                              symbolLocation === 'prefix' &&
-                              fiatPrice !== 0 &&
-                              `-${fiatSymbol}${(
-                                fiatPrice * session.atomicToHuman(tx[2], false)
-                              )
-                                .toFixed(fiatDecimals)
-                                .substring(1)}`}
-                            {displayCurrency === 'fiat' &&
-                              symbolLocation === 'suffix' &&
-                              fiatPrice !== 0 &&
-                              `-${(
-                                fiatPrice * session.atomicToHuman(tx[2], false)
-                              )
-                                .toFixed(2)
-                                .substring(1)}${fiatSymbol}`}
-                            {displayCurrency === 'fiat' &&
-                              fiatPrice === 0 &&
-                              ''}
-                          </p>
+                          <button
+                            value={transactionHash}
+                            onClick={this.expandRow}
+                            className={`transparent-button ${textColor}`}
+                            onMouseDown={event => event.preventDefault()}
+                          >
+                            {toggleSymbol}
+                          </button>
                         </td>
-                      )}
-                      {tx[2] > 0 && (
+                        <td>
+                          {tx[0] === 0 && (
+                            <p className="has-text-danger">
+                              {il8n.unconfirmed}
+                            </p>
+                          )}
+                          {tx[0] > 0 && (
+                            <p>{session.convertTimestamp(tx[0])}</p>
+                          )}
+                        </td>
+                        <td>{tx[1]}</td>
+                        {tx[2] < 0 && (
+                          <td>
+                            <p className="has-text-danger has-text-right">
+                              {displayCurrency === 'NINJA' &&
+                                session.atomicToHuman(tx[2], true)}
+                              {displayCurrency === 'fiat' &&
+                                symbolLocation === 'prefix' &&
+                                fiatPrice !== 0 &&
+                                `-${fiatSymbol}${session
+                                  .formatLikeCurrency(
+                                    (
+                                      fiatPrice *
+                                      session.atomicToHuman(tx[2], false)
+                                    ).toFixed(fiatDecimals)
+                                  )
+                                  .substring(1)}`}
+                              {displayCurrency === 'fiat' &&
+                                symbolLocation === 'suffix' &&
+                                fiatPrice !== 0 &&
+                                `-${session
+                                  .formatLikeCurrency(
+                                    (
+                                      fiatPrice *
+                                      session.atomicToHuman(tx[2], false)
+                                    ).toFixed(2)
+                                  )
+                                  .substring(1)}${fiatSymbol}`}
+                              {displayCurrency === 'fiat' &&
+                                fiatPrice === 0 &&
+                                ''}
+                            </p>
+                          </td>
+                        )}
+                        {tx[2] > 0 && (
+                          <td>
+                            <p className="has-text-right">
+                              {displayCurrency === 'NINJA' &&
+                                session.atomicToHuman(tx[2], true)}
+                              {displayCurrency === 'fiat' &&
+                                symbolLocation === 'prefix' &&
+                                `${fiatSymbol}${session.formatLikeCurrency(
+                                  (
+                                    fiatPrice *
+                                    session.atomicToHuman(tx[2], false)
+                                  ).toFixed(fiatDecimals)
+                                )}`}
+                              {displayCurrency === 'fiat' &&
+                                symbolLocation === 'suffix' &&
+                                `${session.formatLikeCurrency(
+                                  (
+                                    fiatPrice *
+                                    session.atomicToHuman(tx[2], false)
+                                  ).toFixed(fiatDecimals)
+                                )}${fiatSymbol}`}
+                            </p>
+                          </td>
+                        )}
                         <td>
                           <p className="has-text-right">
                             {displayCurrency === 'NINJA' &&
-                              session.atomicToHuman(tx[2], true)}
+                              session.atomicToHuman(tx[3], true)}
                             {displayCurrency === 'fiat' &&
                               symbolLocation === 'prefix' &&
-                              `${fiatSymbol}${(
-                                fiatPrice * session.atomicToHuman(tx[2], false)
-                              ).toFixed(fiatDecimals)}`}
+                              `${fiatSymbol}${session.formatLikeCurrency(
+                                (
+                                  fiatPrice *
+                                  session.atomicToHuman(tx[3], false)
+                                ).toFixed(fiatDecimals)
+                              )}`}
                             {displayCurrency === 'fiat' &&
                               symbolLocation === 'suffix' &&
-                              `${(
-                                fiatPrice * session.atomicToHuman(tx[2], false)
-                              ).toFixed(fiatDecimals)}${fiatSymbol}`}
+                              `${session.formatLikeCurrency(
+                                (
+                                  fiatPrice *
+                                  session.atomicToHuman(tx[3], false)
+                                ).toFixed(fiatDecimals)
+                              )}${fiatSymbol}`}
                           </p>
                         </td>
+                      </tr>
+                      {rowIsExpanded && (
+                        <tr>
+                          <td />
+                          <td colSpan={4}>
+                            <table className="swing-in-top-fwd">
+                              <tbody>
+                                <tr className="no-hover">
+                                  <td>
+                                    <p>
+                                      <b>Date & Time</b>
+                                      <br />
+                                      <b>Confirmations</b>
+                                      <br />
+                                      <b>Block Height</b>
+                                      <br />
+                                      <b>Unlock Time</b>
+                                      <br />
+                                      <b>Transaction Hash</b>
+                                      <br />
+                                      <b>Payment ID</b>
+                                      <br />
+                                      <b>Fee</b>
+                                      <br />
+                                      <b>Amount</b>
+                                      <br />
+                                    </p>
+                                  </td>
+                                  <td>
+                                    {tx[0] === 0
+                                      ? 'Still In Memory Pool'
+                                      : session.convertTimestamp(tx[0])}
+                                    <br />
+                                    {tx[0] !== 0
+                                      ? Math.max(
+                                          session.daemon.getNetworkBlockCount() -
+                                            tx[4],
+                                          0
+                                        )
+                                      : 0}
+                                    <br />
+                                    {tx[0] === 0
+                                      ? 'Still In Memory Pool'
+                                      : session.formatLikeCurrency(tx[4])}
+                                    <br />
+                                    {tx[8]} <br />
+                                    {tx[1]} <br />
+                                    {tx[5] !== '' ? tx[5] : 'none'}
+                                    <br />
+                                    {session.atomicToHuman(tx[7], true)} NINJA
+                                    <br />
+                                    <p
+                                      className={
+                                        tx[2] < 0
+                                          ? 'is-negative-transaction has-text-danger'
+                                          : ''
+                                      }
+                                    >
+                                      {session.atomicToHuman(tx[2], true)} NINJA
+                                    </p>
+                                    <br />
+                                    <br />
+                                    <button
+                                      className={`button ${elementBaseColor}`}
+                                      value={transactionHash}
+                                      onClick={this.openInExplorer}
+                                    >
+                                      View on Block Explorer
+                                    </button>
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </td>
+                        </tr>
                       )}
-                      <td>
-                        <p className="has-text-right">
-                          {displayCurrency === 'NINJA' &&
-                            session.atomicToHuman(tx[3], true)}
-                          {displayCurrency === 'fiat' &&
-                            symbolLocation === 'prefix' &&
-                            `${fiatSymbol}${(
-                              fiatPrice * session.atomicToHuman(tx[3], false)
-                            ).toFixed(fiatDecimals)}`}
-                          {displayCurrency === 'fiat' &&
-                            symbolLocation === 'suffix' &&
-                            `${(
-                              fiatPrice * session.atomicToHuman(tx[3], false)
-                            ).toFixed(fiatDecimals)}${fiatSymbol}`}
-                        </p>
-                      </td>
-                    </tr>
+                    </Fragment>
                   );
                 })}
               </tbody>
             </table>
+            {transactions.length === 0 && (
+              <div className="elem-to-center">
+                <div className={`box ${fillColor}`}>
+                  <p className={`${textColor} title has-text-centered`}>
+                    <i className="fas fa-robot" />
+                    &nbsp;&nbsp;Welcome to NinjaCoin wallet!
+                  </p>
+                  <br />
+                  <p className={`${textColor} subtitle has-text-centered`}>
+                    You don&apos;t have any transactions yet. They will display
+                    here once you do.
+                  </p>
+                </div>
+              </div>
+            )}
             {totalTransactionCount > 50 && (
               <form>
                 <div className="field">

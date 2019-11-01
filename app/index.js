@@ -1,5 +1,3 @@
-// @flow
-//
 // Copyright (C) 2019 ExtraHash
 //
 // Please see the included LICENSE file for more information.
@@ -11,6 +9,7 @@ import fs from 'fs';
 import path from 'path';
 import React, { Fragment } from 'react';
 import LocalizedStrings from 'react-localization';
+import ErrorBoundary from 'react-error-boundary';
 import { render } from 'react-dom';
 import { AppContainer as ReactHotAppContainer } from 'react-hot-loader';
 import { ipcRenderer, remote, clipboard } from 'electron';
@@ -25,6 +24,13 @@ import AutoUpdater from './wallet/autoUpdater';
 import LoginCounter from './wallet/loginCounter';
 import uiType from './utils/uitype';
 import DaemonLogger from './wallet/DaemonLogger';
+
+const homedir = os.homedir();
+
+export const directories = [
+  `${homedir}/.ninja-wallet-pro`,
+  `${homedir}/.ninja-wallet-pro/logs`
+];
 
 export const il8n = new LocalizedStrings({
   // eslint-disable-next-line global-require
@@ -50,13 +56,6 @@ export let config = iConfig;
 export const eventEmitter = new EventEmitter();
 eventEmitter.setMaxListeners(6);
 
-const homedir = os.homedir();
-
-export const directories = [
-  `${homedir}/.ninja-wallet-pro`,
-  `${homedir}/.ninja-wallet-pro/logs`
-];
-
 export const updater = new AutoUpdater();
 updater.getLatestVersion();
 
@@ -64,7 +63,7 @@ export const loginCounter = new LoginCounter();
 
 remote.app.setAppUserModelId('wallet.ninja-wallet-pro.extra');
 
-log.debug(`NinjaCoin Wallet Pro started...`);
+log.debug(`Ninja wallet started...`);
 
 const [programDirectory] = directories;
 
@@ -84,6 +83,10 @@ if (!fs.existsSync(`${programDirectory}/config.json`)) {
   }
 }
 
+export const addressList = JSON.parse(
+  fs.readFileSync(`${programDirectory}/addressBook.json`).toString()
+);
+
 fs.writeFile(
   `${programDirectory}/config.json`,
   JSON.stringify(config, null, 4),
@@ -92,11 +95,65 @@ fs.writeFile(
   }
 );
 
-const { darkMode, useLocalDaemon } = config;
+const { darkMode, daemonLogPath, useLocalDaemon } = config;
 
-export const daemonLogger = useLocalDaemon ? new DaemonLogger() : null;
+export let daemonLogger = null;
 
-const { textColor } = uiType(darkMode);
+if (useLocalDaemon && daemonLogPath) {
+  try {
+    daemonLogger = new DaemonLogger(daemonLogPath);
+  } catch (error) {
+    log.error('Tail initialization failed.');
+    log.error(error);
+  }
+}
+
+export function stopTail() {
+  daemonLogger = null;
+}
+
+export function startTail(filePath?: PathLike) {
+  try {
+    daemonLogger = new DaemonLogger(filePath || daemonLogPath);
+  } catch (error) {
+    log.error('Tail initialization failed.');
+    log.error(error);
+  }
+}
+
+let { textColor } = uiType(darkMode);
+
+eventEmitter.on('darkmodeon', () => {
+  textColor = 'has-text-white';
+});
+eventEmitter.on('darkmodeoff', () => {
+  textColor = 'has-text-dark';
+});
+
+try {
+  // eslint-disable-next-line no-unused-vars
+  let testSession = new WalletSession();
+  testSession = null;
+} catch (error) {
+  log.debug(error);
+  render(
+    <div className="wholescreen has-background-black">
+      <div className="elem-to-center box has-background-dark">
+        <h1 className="title has-text-white has-text-centered">
+          <i className="fas fa-skull" />
+          &nbsp;&nbsp;Uh oh, this isn&apos;t good.
+        </h1>
+        <p className="has-text-white">
+          Something bad happened and we couldn&apos;t open your wallet. Your
+          wallet file might be corrupted or have been moved.
+        </p>
+        <br />
+        <p className="has-text-white">{error.stack}</p>
+      </div>
+    </div>,
+    document.getElementById('root')
+  );
+}
 
 export let session = new WalletSession();
 
@@ -106,6 +163,13 @@ if (!session.loginFailed && !session.firstStartup) {
 } else {
   log.debug('Login failed, redirecting to login...');
 }
+
+function handleDonate() {
+  eventEmitter.emit('goToDonate');
+}
+
+ipcRenderer.on('handleDonate', handleDonate);
+eventEmitter.on('handleDonate', handleDonate);
 
 ipcRenderer.on('handleClose', () => {
   if (session && !session.loginFailed && !session.firstStartup) {
@@ -129,7 +193,7 @@ eventEmitter.on('updateRequired', updateFile => {
       </center>
       <br />
       <p className={`subtitle ${textColor}`}>
-        There&apos;s a new version of NinjaCoin Wallet Pro available. Would you like to
+        There&apos;s a new version of Ninja Wallet available. Would you like to
         download it?
       </p>
     </div>
@@ -181,7 +245,7 @@ ipcRenderer.on('handleSave', () => {
       const message = (
         <div>
           <center>
-            <p className="subtitle has-texct-danger">Save Error!</p>
+            <p className="subtitle has-text-danger">Save Error!</p>
           </center>
           <br />
           <p className={`subtitle ${textColor}`}>
@@ -233,19 +297,25 @@ ipcRenderer.on('handleSaveAs', () => {
 });
 
 ipcRenderer.on('exportToCSV', () => {
-  if (session && !session.wallet) {
+  if ((session && !session.wallet) || !loginCounter.isLoggedIn) {
     eventEmitter.emit('refreshLogin');
     return;
   }
   if (session) {
     const options = {
-      defaultPath: remote.app.getPath('documents')
+      defaultPath: remote.app.getPath('documents'),
+      filters: [
+        {
+          name: 'CSV Text File',
+          extensions: ['csv']
+        }
+      ]
     };
     const savePath = remote.dialog.showSaveDialog(null, options);
     if (savePath === undefined) {
       return;
     }
-    log.debug(`Exporting transactions to csv file at ${savePath}.csv...`);
+    log.debug(`Exporting transactions to csv file at ${savePath}`);
     if (session) {
       session.exportToCSV(savePath);
       const message = (
@@ -255,7 +325,7 @@ ipcRenderer.on('exportToCSV', () => {
           </center>
           <br />
           <p className={`subtitle ${textColor}`}>
-            Your transaction history has been exported to a .csv file at{' '}
+            Your transaction history has been exported to a .csv file at
             {savePath}
           </p>
         </div>
@@ -267,9 +337,16 @@ ipcRenderer.on('exportToCSV', () => {
 
 function handleOpen() {
   const options = {
-    defaultPath: remote.app.getPath('documents')
+    defaultPath: remote.app.getPath('documents'),
+    filters: [
+      {
+        name: 'NinjaCoin Wallet File (v0)',
+        extensions: ['wallet']
+      }
+    ]
   };
   const getPaths = remote.dialog.showOpenDialog(null, options);
+  log.debug(getPaths);
   if (getPaths === undefined) {
     return;
   }
@@ -330,26 +407,16 @@ function handleOpen() {
   }
 }
 
-/*
-// This isn't very good for the UX as it freezes everything up.
-// Next release cycle I will be making my own in-window modal popup, so let's remove this for now.
-eventEmitter.on('deadNode', () => {
-  remote.dialog.showMessageBox(null, {
-    type: 'error',
-    buttons: [il8n.ok],
-    title: 'Dead Node',
-    message:
-      "The node you've connected to is most likely dead. Please try a different node."
-  });
-});
-*/
-
 eventEmitter.on('sendNotification', function sendNotification(amount) {
-  const notif = new window.Notification('Transaction Received!', {
-    body: `${il8n.just_received} ${amount} ${il8n.NINJA}`
-  });
-  if (notif) {
-    log.debug(`Sent notification: You've just received ${amount} NINJA.`);
+  const { notifications } = config;
+
+  if (notifications) {
+    const notif = new window.Notification('Transaction Received!', {
+      body: `${il8n.just_received} ${amount} ${il8n.NINJA}`
+    });
+    if (notif) {
+      log.debug(`Sent notification: You've just received ${amount} NINJA.`);
+    }
   }
 });
 
@@ -358,7 +425,28 @@ eventEmitter.on('handleOpen', handleOpen);
 
 ipcRenderer.on('failedDaemonInit', failedDaemonInit);
 
+function handleAbout() {
+  remote.shell.openExternal(
+    'http://github.com/ninjacoin-master/ninja-wallet-pro#readme'
+  );
+}
+
+function handleHelp() {
+  remote.shell.openExternal('https://discord.ninjacoin.org');
+}
+
+function handleIssues() {
+  remote.shell.openExternal(
+    'https://github.com/ninjacoin-master/ninja-wallet-pro/issues'
+  );
+}
+
+eventEmitter.on('handleHelp', handleHelp);
+eventEmitter.on('handleAbout', handleAbout);
+eventEmitter.on('handleIssues', handleIssues);
+
 function failedDaemonInit() {
+  loginCounter.daemonFailedInit = true;
   if (session) {
     session.modifyConfig('useLocalDaemon', false);
   }
@@ -370,8 +458,8 @@ function failedDaemonInit() {
       <br />
       <p className={`subtitle ${textColor}`}>
         Your daemon failed to initialize, and you have been placed back in
-        remote node mode automatically. Check your NinjaCoind path in settings
-        is accurate and that NinjaCoind has execute permissions, and try again.
+        remote node mode automatically. You can check the log output of
+        TurtleCoind in the Terminal tab.
       </p>
     </div>
   );
@@ -393,9 +481,15 @@ eventEmitter.on('initializeNewSession', password => {
   eventEmitter.emit('openNewWallet');
 });
 
-function handleNew() {
+export function saveNew(wallet: any, password: string) {
   const options = {
-    defaultPath: remote.app.getPath('documents')
+    defaultPath: remote.app.getPath('documents'),
+    filters: [
+      {
+        name: 'NinjaCoin Wallet File (v0)',
+        extensions: ['wallet']
+      }
+    ]
   };
   const savePath = remote.dialog.showSaveDialog(null, options);
   if (savePath === undefined) {
@@ -403,62 +497,68 @@ function handleNew() {
   }
   if (session) {
     session.saveWallet(session.walletFile);
-    if (savedInInstallDir(savePath)) {
+  }
+  if (savedInInstallDir(savePath)) {
+    const message = (
+      <div>
+        <center>
+          <p className="subtitle has-text-danger">Wallet Save Error!</p>
+        </center>
+        <br />
+        <p className={`subtitle ${textColor}`}>
+          You can not save the wallet in the installation directory. The windows
+          installer will delete all files in the directory upon upgrading the
+          application, so it is not allowed. Please save the wallet somewhere
+          else.
+        </p>
+      </div>
+    );
+    eventEmitter.emit('openModal', message, 'OK', null, null);
+    return;
+  }
+  const createdSuccessfuly = session.handleNewWallet(
+    wallet,
+    savePath,
+    password
+  );
+  if (createdSuccessfuly === false) {
+    const message = (
+      <div>
+        <center>
+          <p className="subtitle has-text-danger">Wallet Creation Error!</p>
+        </center>
+        <br />
+        <p className={`subtitle ${textColor}`}>
+          The wallet was not created successfully. Check your directory
+          permissions and try again.
+        </p>
+      </div>
+    );
+    eventEmitter.emit('openModal', message, 'OK', null, null);
+  } else {
+    const savedSuccessfully = session.handleWalletOpen(savePath);
+    if (savedSuccessfully === true) {
+      session = null;
+      session = new WalletSession(password);
+      startWallet();
       const message = (
         <div>
           <center>
-            <p className="subtitle has-text-danger">Wallet Save Error!</p>
+            <p className={`subtitle ${textColor}`}>Success!</p>
           </center>
           <br />
           <p className={`subtitle ${textColor}`}>
-            You can not save the wallet in the installation directory. The
-            windows installer will delete all files in the directory upon
-            upgrading the application, so it is not allowed. Please save the
-            wallet somewhere else.
+            Your new wallet was created successfully.
           </p>
         </div>
       );
-      eventEmitter.emit('openModal', message, 'OK', null, null);
-      return;
-    }
-    const createdSuccessfuly = session.handleNewWallet(savePath);
-    if (createdSuccessfuly === false) {
-      const message = (
-        <div>
-          <center>
-            <p className="subtitle has-text-danger">Wallet Creation Error!</p>
-          </center>
-          <br />
-          <p className={`subtitle ${textColor}`}>
-            The wallet was not created successfully. Check your directory
-            permissions and try again.
-          </p>
-        </div>
-      );
-      eventEmitter.emit('openModal', message, 'OK', null, null);
-    } else {
-      const savedSuccessfully = session.handleWalletOpen(savePath);
-      if (savedSuccessfully === true) {
-        session = null;
-        session = new WalletSession();
-        startWallet();
-        eventEmitter.emit('handlePasswordChange');
-        const message = (
-          <div>
-            <center>
-              <p className={`subtitle ${textColor}`}>Success!</p>
-            </center>
-            <br />
-            <p className={`subtitle ${textColor}`}>
-              Your new wallet was created successfully. Please set your
-              password.
-            </p>
-          </div>
-        );
-        eventEmitter.emit('openModal', message, 'OK', null, null);
-      }
+      eventEmitter.emit('openModal', message, 'OK', null, 'goHome');
     }
   }
+}
+
+function handleNew() {
+  eventEmitter.emit('goToNewWallet');
 }
 
 ipcRenderer.on('handleNew', handleNew);
@@ -502,19 +602,23 @@ function restartApplication() {
 eventEmitter.on('restartApplication', restartApplication);
 
 eventEmitter.on('backupToFile', backupToFile);
-function backupToFile() {
-  if (!session) {
-    return;
-  }
-  const publicAddress = session.wallet.getPrimaryAddress();
+
+function getWalletSecret(wallet?: any) {
+  const walletToBackup = wallet || session.wallet;
+
+  const publicAddress = walletToBackup.getPrimaryAddress();
   const [
     privateSpendKey,
     privateViewKey
-  ] = session.wallet.getPrimaryAddressPrivateKeys();
-  const [mnemonicSeed, err] = session.wallet.getMnemonicSeed();
+  ] = walletToBackup.getPrimaryAddressPrivateKeys();
+  // eslint-disable-next-line prefer-const
+  let [mnemonicSeed, err] = walletToBackup.getMnemonicSeed();
   if (err) {
-    log.debug(err);
-    return;
+    if (err.errorCode === 41) {
+      mnemonicSeed = '';
+    } else {
+      throw err;
+    }
   }
 
   const secret =
@@ -524,12 +628,28 @@ function backupToFile() {
     privateSpendKey +
     `\n\n${il8n.private_view_key_colon}\n\n` +
     privateViewKey +
-    `\n\n${il8n.mnemonic_seed_colon}\n\n` +
+    (mnemonicSeed !== '' ? `\n\n${il8n.mnemonic_seed_colon}\n\n` : '') +
     mnemonicSeed +
     `\n\n${il8n.please_save_your_keys}`;
 
+  return secret;
+}
+
+export function backupToFile(wallet?: any) {
+  if (!session && !wallet) {
+    return;
+  }
+
+  const secret = getWalletSecret(wallet || undefined);
+
   const options = {
-    defaultPath: remote.app.getPath('documents')
+    defaultPath: remote.app.getPath('documents'),
+    filters: [
+      {
+        name: 'Text File',
+        extensions: ['txt']
+      }
+    ]
   };
   const savePath = remote.dialog.showSaveDialog(null, options);
   if (savePath === undefined) {
@@ -537,36 +657,20 @@ function backupToFile() {
   }
 
   fs.writeFile(savePath, secret, error => {
-    throw error;
+    if (error) {
+      throw error;
+    }
   });
 }
 
 eventEmitter.on('backupToClipboard', backupToClipboard);
+
 function backupToClipboard() {
   if (!session) {
     return;
   }
-  const publicAddress = session.wallet.getPrimaryAddress();
-  const [
-    privateSpendKey,
-    privateViewKey
-  ] = session.wallet.getPrimaryAddressPrivateKeys();
-  const [mnemonicSeed, err] = session.wallet.getMnemonicSeed();
-  if (err) {
-    log.debug(err);
-    return;
-  }
 
-  const secret =
-    // eslint-disable-next-line prefer-template
-    publicAddress +
-    `\n\n${il8n.private_spend_key_colon}\n\n` +
-    privateSpendKey +
-    `\n\n${il8n.private_view_key_colon}\n\n` +
-    privateViewKey +
-    `\n\n${il8n.mnemonic_seed_colon}\n\n` +
-    mnemonicSeed +
-    `\n\n${il8n.please_save_your_keys}`;
+  const secret = getWalletSecret();
 
   clipboard.writeText(secret);
 }
@@ -583,8 +687,6 @@ function handleImport() {
       </center>
       <br />
       <p className={`subtitle ${textColor}`}>
-        <b>Send to:</b>
-        <br />
         Would you like to import from seed or keys?
       </p>
     </div>
@@ -607,6 +709,30 @@ const store = configureStore();
 
 const AppContainer = process.env.PLAIN_HMR ? Fragment : ReactHotAppContainer;
 
+// eslint-disable-next-line no-unused-vars
+const uncaughtErrorHandler = (error: Error, componentStack: string) => {
+  log.debug(error);
+};
+
+// eslint-disable-next-line react/prop-types
+const uncaughtErrorComponent = ({ componentStack, error }) => (
+  <div className="wholescreen has-background-black">
+    <div className="elem-to-center box has-background-dark">
+      <h1 className="title has-text-white has-text-centered">
+        <i className="fas fa-skull" />
+        &nbsp;&nbsp;Uh oh, this isn&apos;t good.
+      </h1>
+      <p className="has-text-white">
+        Something bad happened and we couldn&apos;t open your wallet. This is
+        probably a programmer error. Error details are below.
+      </p>
+      <br />
+      <p className="has-text-white">{error.toString()}</p>
+      <p className="has-text-white">{componentStack}</p>
+    </div>
+  </div>
+);
+
 async function startWallet() {
   if (session) {
     try {
@@ -626,20 +752,23 @@ function activityDetected() {
 
 render(
   <AppContainer>
-    <div
-      onClick={activityDetected}
-      onKeyPress={activityDetected}
-      role="button"
-      tabIndex={0}
+    <ErrorBoundary
+      onError={uncaughtErrorHandler}
+      FallbackComponent={uncaughtErrorComponent}
     >
-      <Root store={store} history={history} />
-    </div>
+      <div
+        onClick={activityDetected}
+        onKeyPress={activityDetected}
+        role="button"
+        tabIndex={0}
+      >
+        <Root store={store} history={history} />
+      </div>
+    </ErrorBoundary>
   </AppContainer>,
-  // $FlowFixMe
   document.getElementById('root')
 );
 
-// $FlowFixMe
 if (module.hot) {
   module.hot.accept('./containers/Root', () => {
     // eslint-disable-next-line global-require
@@ -655,7 +784,6 @@ if (module.hot) {
           <NextRoot store={store} history={history} />{' '}
         </div>
       </AppContainer>,
-      // $FlowFixMe
       document.getElementById('root')
     );
   });

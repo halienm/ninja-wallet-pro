@@ -1,5 +1,3 @@
-// @flow
-//
 // Copyright (C) 2019 ExtraHash
 //
 // Please see the included LICENSE file for more information.
@@ -15,7 +13,7 @@ type Props = {
   darkMode: boolean
 };
 
-export default class Template extends Component<Props, State> {
+export default class ScanCoinbaseToggle extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
     this.state = {
