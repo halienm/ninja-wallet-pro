@@ -5,10 +5,11 @@ import { app, Menu, shell, BrowserWindow } from 'electron';
 import log from 'electron-log';
 import LocalizedStrings from 'react-localization';
 import npmPackage from '../package.json';
+import { messageRelayer } from './main.dev';
 
 export const il8n = new LocalizedStrings({
   // eslint-disable-next-line global-require
-  en: require('./il8n/en-menu.json')
+  en: require('./mainWindow/il8n/en-menu.json')
 });
 
 const { version: currentVersion } = npmPackage;
@@ -16,6 +17,8 @@ const { productName } = npmPackage;
 
 export default class MenuBuilder {
   mainWindow: BrowserWindow;
+
+  backendWindow: BrowserWindow;
 
   constructor(mainWindow: BrowserWindow) {
     this.mainWindow = mainWindow;
@@ -238,7 +241,7 @@ export default class MenuBuilder {
         {
           label: il8n.support,
           click() {
-            shell.openExternal('https://discord.ninjacoin.org');
+            shell.openExternal('https://discord.gg/P7urHQs');
           }
         },
         {
@@ -258,8 +261,8 @@ export default class MenuBuilder {
           }
         }
       ]
-    }
-	const subMenuDonate = {
+    };
+    const subMenuDonate = {
       label: 'Donate',
       submenu: [
         {
@@ -285,7 +288,7 @@ export default class MenuBuilder {
   }
 
   handleSave() {
-    this.mainWindow.webContents.send('handleSave');
+    messageRelayer.sendToBackend('saveWallet', true);
   }
 
   handleOpen() {
@@ -458,7 +461,7 @@ export default class MenuBuilder {
           {
             label: il8n.support,
             click: () => {
-              shell.openExternal('https://discord.ninjacoin.org');
+              shell.openExternal('https://discord.gg/P7urHQs');
             }
           },
           {
@@ -483,6 +486,21 @@ export default class MenuBuilder {
               shell.openExternal(
                 'https://github.com/ninjacoin-master/ninja-wallet-pro/issues'
               );
+            }
+          }
+        ]
+      },
+      {
+        label: 'Donate',
+        submenu: [
+          {
+            label: 'Donate to the Developers',
+            click: () => {
+              try {
+                this.handleDonate();
+              } catch (err) {
+                log.error(err);
+              }
             }
           }
         ]

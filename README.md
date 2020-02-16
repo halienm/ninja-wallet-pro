@@ -1,33 +1,46 @@
-<img src="https://user-images.githubusercontent.com/47786795/63953615-f6b28f80-ca81-11e9-935d-258af62ffcb1.PNG">
+# NinjaCoin Wallet Pro Wallet
 
+![Download Count](https://img.shields.io/github/downloads/ninjacoin-master/ninja-wallet-pro/total.svg)
+![Open Issue Count](https://img.shields.io/github/issues/ninjacoin-master/ninja-wallet-pro)
+![License](https://img.shields.io/github/license/ninjacoin-master/ninja-wallet-pro)
+![Version](https://img.shields.io/github/v/release/ninjacoin-master/ninja-wallet-pro)
+
+### Master Build Status
+
+![Master Build Status](https://github.com/ninjacoin-master/ninja-wallet-pro/workflows/Build%20NinjaCoin Wallet Pro/badge.svg?branch=master)
+
+### Development Build Status
+
+![Development Build Status](https://github.com/ninjacoin-master/ninja-wallet-pro/workflows/Build%20NinjaCoin Wallet Pro/badge.svg?branch=development)
+
+<img src="https://raw.githubusercontent.com/ninjacoin-master/ninja-wallet-pro/development/screenshots/screenshot.png">
 <p>
-  Proton Wallet is a TurtleCoin wallet that uses <a href="http://electron.atom.io/">Electron</a>, <a href="https://facebook.github.io/react/">React</a>, <a href="https://github.com/turtlecoin/turtlecoin-wallet-backend-js">Turtlecoin-Wallet-Backend-JS</a>, <a href="https://github.com/reactjs/redux">Redux</a>, <a href="https://github.com/reactjs/react-router">React Router</a>, <a href="http://webpack.github.io/docs/">Webpack</a> and <a href="https://github.com/gaearon/react-hot-loader">React Hot Loader</a>.
+  NinjaCoin Wallet Pro Wallet is a NinjaCoin wallet that uses <a href="http://electron.atom.io/">Electron</a>, <a href="https://facebook.github.io/react/">React</a>, <a href="https://github.com/turtlecoin/ninjacoin-wallet-backend-js">Turtlecoin-Wallet-Backend-JS</a>, <a href="https://github.com/reactjs/redux">Redux</a>, <a href="https://github.com/reactjs/react-router">React Router</a>, <a href="http://webpack.github.io/docs/">Webpack</a> and <a href="https://github.com/gaearon/react-hot-loader">React Hot Loader</a>.
 </p>
 
 <p>
-  All of the code is released under the MIT license, and are free for anyone to use as they wish. The icons in the ./resources folder, however, are not released under this MIT license, rather they are maintained to be intellectual property of ExtraHash, and may not be used to represent the brand or identity of any other piece of software or group. See the included license file in ./resources/LICENSE for more details.
+  All of the code is released under the GPLv3 license. The icons in the ./resources and ./app/images folders, however, are not released under this license, rather they are maintained to be intellectual property of ExtraHash, and may not be used to represent the brand or identity of any other piece of software or group. See the included license file in ./resources/LICENSE and ./app/images/LICENSE for more details.
 </p>
 
 ## Installing
 
-**Check out the full tutorial on how to install and use Proton at the [official TurtleCoin docs page](https://docs.turtlecoin.lol/guides/wallets/using-proton-wallet)!**
+**Check out the full tutorial on how to install and use NinjaCoin Wallet Pro at the [official NinjaCoin docs page](https://docs.turtlecoin.lol/guides/wallets/using-ninja-wallet-pro)!**
 
 ## Development Setup (All Platforms)
 
 ### Dependencies
 
-* Node.JS (Latest LTS version - 10.x)
+#### You will need the following dependencies installed before you can proceed to the "Setup" step:
 
-https://nodejs.org/   
-[Node Version Manager](https://github.com/nvm-sh/nvm#install--update-script) makes installing different versions of node super easy, fully recommended.
+- Node.JS (Latest LTS version - 10.x) https://nodejs.org/
 
-* Yarn
+- Yarn https://yarnpkg.com/en/
 
-https://yarnpkg.com/en/
+- Git https://git-scm.com/downloads
 
-* Git
+Tip: If you already have a different version of node.js installed besides 10.x, try using [Node Version Manager](https://github.com/nvm-sh/nvm#install--update-script).
 
-https://git-scm.com/downloads
+#### Setup
 
 First, clone the repo via git:
 
@@ -56,7 +69,7 @@ Start the app in the `dev` environment. This starts the renderer process in [**h
 $ yarn dev
 ```
 
-### Packaging 
+### Packaging
 
 To package apps for the local platform:
 
@@ -66,4 +79,5 @@ $ yarn package
 
 ## License
 
-MIT © [ExtraHash](https://github.com/ExtraHash)
+© [ExtraHash](https://github.com/ExtraHash)
+See included License file for more details.

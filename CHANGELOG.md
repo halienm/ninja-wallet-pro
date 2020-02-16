@@ -1,10 +1,49 @@
 # Changelog
 
+## v1.1.1
+
+- fixes a bug where the "save as" command does not append the .wallet extension
+- fixes a bug where the user could still save the wallet in the install directory by placing it in a subfolder, causing the wallet file to be wiped on wallet upgrade
+- electron-builder updated for MacOS Catalina compatability
+- updates GH builds to use latest OS and cache the dependencies
+- upgrades the wallet backend to alleviate a bug that was (possibly) effecting sending transactions
+- Slight configuration change in an attempt to make the sync process not effect the GUI responsiveness so much
+
+## v1.1.0
+
+- Adds a new method of making new wallets, which is much more interactive, and ensures the user backs up their seed before they use their wallet.
+- Adds an addressbook.
+- Makes several updates to the send form to integrate with the new address book. You can now enter a contact name or turtlecoin address in the send field, and it will autosuggest matching contacts as you type.
+- Adds a search feature. Currently you can search contacts (name or address), transactions (hash, block height, or payment ID), and settings (name, description, or keywords).
+- Fixes a bug that would cause the wallet syncing to slow drastically when window was hidden or minimized.
+- Fixes a bug that would cause the user to be unable to backup the wallet if it was a non-deterministic wallet.
+- Fixes a but that would allow exporting transactions as CSV when the wallet was locked.
+- Switches the node changer to use the built in swapNode() method.
+- Removes the ability to actually launch the NinjaCoind process, but still allows tailing a log file: I found that actually having NinjaCoin Wallet Pro launch the child process itself was not the functionality I was really looking for, I was just looking to be able to view my terminal output in NinjaCoin Wallet Pro for both the daemon and the backend. So, I removed the launching of the process, but it still allows you to set a log file location and view the tail of the text file in the Terminal tab.
+- Switches to GitHub actions for push and PR building / release deployment rather than using travis (much faster, windows build is ~6 min compared to almost 30)
+
+## v1.0.0
+
+- There is user action required for this update. The wallet open dialog now **only looks for wallet files ending in the `.wallet` extension,** as well as uses this extension by default when saving. If your wallet file does not have this extension, you will not be able to see it in the open dialog. **You must manually rename your wallet file and give it the proper extension `.wallet`**.
+- Adds quite a few nifty animations.
+- Adds integrated address generation on the Receive screen.
+- Fixes a nasty memory leak that somehow I did not notice on the last version.
+- Fixes some UX bugs that were missed from transitioning to non-blocking modal components rather than native dialogs.
+- Increases the amount of sockets available to request to fix timeout bugs.
+- All drop down menus are now fully searchable, keyboard navigable, and ARIA compliant.
+- WalletBackend logs are now viewable in the terminal tab, and there is a component under Wallet settings that allows you to set the log level.
+- Uncaught errors now display in an error component for the user instead of crashing the renderer process
+- You can now disable and enable notifications in OS Settings.
+
+Also, following this release, NinjaCoin Wallet Pro will be moving to a **monthly release cycle**. We will have a new version out W1 of each month for you to download, so no more of these incredibly frequent update notifications (apologies if they've been bothersome).
+
+Thanks NinjaCoin community, and please enjoy the new version!
+
 ## v0.0.28
 
 - introduces a non-blocking in-window 'modal' component which replaces all native (thread blocking) dialogs
 - adds a local daemon mode which can be enabled in settings (you must provide a path to turtlecoind)
-- upgrades turtlecoin-wallet-backend for some transaction bugfixes
+- upgrades ninjacoin-wallet-backend for some transaction bugfixes
 - adds some additional dev-only testing actions
 - pulls in source code pro for monospace font on all OS
 
@@ -55,7 +94,7 @@ This is a pretty big release, cleaning up the codebase and making it look much n
 ## v0.0.23
 
 - finishes rewind feature (before you could only press the button to rewind ~day, i forgot to finish the user input height)
-- bumps turtlecoin-wallet-backend version
+- bumps ninjacoin-wallet-backend version
 - fixes AppImage system icon not working
 - now closes to system tray instead of closing completely on X
 
@@ -64,7 +103,7 @@ This is a pretty big release, cleaning up the codebase and making it look much n
 - updated balance widget to include visual difference when some of the balance is locked as well as a mouseover event that shows locked / unlocked bal
 - conditional validation for the transaction dialog box
 - fixes a bug that would cause the historical and balance to be incorrectly displayed when a portion of the balane was locked
-- bumps turtlecoin-wallet-backend
+- bumps ninjacoin-wallet-backend
 - fixes the send field allowing negative numbers
 - fixes a bug that would cause the send field to add wrong (eg 1 + 0.1 = 1.11)
 - adds aarmv7 / arm64 support
@@ -87,7 +126,7 @@ This is a pretty big release, cleaning up the codebase and making it look much n
 - sends a native OS notification when you receive a transaction
 - implements an automatic save every few minutes if the wallet is left running
 - windows now has a configurable installer which allows installation in a custom directory or for all users (all users requires administrative permissions)
-- turtlecoin-wallet-backend-js version upgraded, now connects to daemon with KeepAlive = true
+- ninjacoin-wallet-backend-js version upgraded, now connects to daemon with KeepAlive = true
 - fixes copy + paste on MacOS
 - various UI improvements
 
@@ -106,7 +145,7 @@ This is a pretty big release, cleaning up the codebase and making it look much n
 
 ## v0.0.15
 
-- bumps turtlecoin-wallet-backend-js dependency to latest version
+- bumps ninjacoin-wallet-backend-js dependency to latest version
 - hides the navigation when no wallet is open
 - redirects to the main Wallet page any time after opening a new wallet
 - various bug fixes
@@ -117,7 +156,7 @@ This is a pretty big release, cleaning up the codebase and making it look much n
 
 ## v0.0.13
 
-- upgrade the turtlecoin-wallet-backend dependency to fix a bug that was caused by a batch of blocks in the ~200k range, also no longer checks for an update in development mode
+- upgrade the ninjacoin-wallet-backend dependency to fix a bug that was caused by a batch of blocks in the ~200k range, also no longer checks for an update in development mode
 
 ## v0.0.12
 
