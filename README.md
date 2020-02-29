@@ -1,4 +1,4 @@
-# NinjaCoin Wallet Pro Wallet
+# NinjaCoin Wallet Pro
 
 ![Download Count](https://img.shields.io/github/downloads/ninjacoin-master/ninja-wallet-pro/total.svg)
 ![Open Issue Count](https://img.shields.io/github/issues/ninjacoin-master/ninja-wallet-pro)
