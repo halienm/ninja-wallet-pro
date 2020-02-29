@@ -6,7 +6,7 @@ import ReactTooltip from 'react-tooltip';
 import { clipboard } from 'electron';
 import log from 'electron-log';
 import jdenticon from 'jdenticon';
-import { WalletBackend } from 'turtlecoin-wallet-backend';
+import { WalletBackend } from 'ninjacoin-wallet-backend';
 import NavBar from './NavBar';
 import BottomBar from './BottomBar';
 import Redirector from './Redirector';

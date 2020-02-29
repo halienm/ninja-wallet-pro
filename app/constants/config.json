@@ -7,7 +7,7 @@
   "logLevel": "DISABLED",
   "daemonHost": "server.ninjacoin.org",
   "daemonPort": 11801,
-  "darkMode": false,
+  "darkMode": true,
   "displayCurrency": "NINJA",
   "selectedFiat": "usd",
   "fiatSymbol": "$",

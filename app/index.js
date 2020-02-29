@@ -13,7 +13,7 @@ import ErrorBoundary from 'react-error-boundary';
 import { render } from 'react-dom';
 import { AppContainer as ReactHotAppContainer } from 'react-hot-loader';
 import { ipcRenderer, remote, clipboard } from 'electron';
-import { WalletBackend } from 'turtlecoin-wallet-backend';
+import { WalletBackend } from 'ninjacoin-wallet-backend';
 import EventEmitter from 'events';
 import Root from './containers/Root';
 import { configureStore, history } from './store/configureStore';
@@ -459,7 +459,7 @@ function failedDaemonInit() {
       <p className={`subtitle ${textColor}`}>
         Your daemon failed to initialize, and you have been placed back in
         remote node mode automatically. You can check the log output of
-        TurtleCoind in the Terminal tab.
+        NinjaCoind in the Terminal tab.
       </p>
     </div>
   );

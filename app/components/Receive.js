@@ -8,7 +8,7 @@ import ReactTooltip from 'react-tooltip';
 import {
   createIntegratedAddress,
   validatePaymentID
-} from 'turtlecoin-wallet-backend';
+} from 'ninjacoin-wallet-backend';
 import { session, il8n, loginCounter } from '../index';
 import NavBar from './NavBar';
 import BottomBar from './BottomBar';

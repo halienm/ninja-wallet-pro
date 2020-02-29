@@ -4,7 +4,7 @@
 import React, { Component } from 'react';
 import { remote } from 'electron';
 import log from 'electron-log';
-import { Daemon } from 'turtlecoin-wallet-backend';
+import { Daemon } from 'ninjacoin-wallet-backend';
 import {
   il8n,
   session,
@@ -52,7 +52,7 @@ export default class NodeChanger extends Component<Props, State> {
     );
     this.handleNodeChangeComplete = this.handleNodeChangeComplete.bind(this);
     this.toggleLocalDaemon = this.toggleLocalDaemon.bind(this);
-    this.browseForTurtleCoind = this.browseForTurtleCoind.bind(this);
+    this.browseForNinjaCoind = this.browseForNinjaCoind.bind(this);
   }
 
   componentWillMount() {
@@ -67,7 +67,7 @@ export default class NodeChanger extends Component<Props, State> {
     eventEmitter.off('nodeChangeComplete', this.handleNodeChangeComplete);
   }
 
-  browseForTurtleCoind = () => {
+  browseForNinjaCoind = () => {
     const options = {
       defaultPath: remote.app.getPath('documents')
     };
@@ -91,7 +91,7 @@ export default class NodeChanger extends Component<Props, State> {
     // eslint-disable-next-line prefer-const
     let [host, port] = connectionString.split(':', 2);
     if (port === undefined) {
-      port = '11898';
+      port = '11801';
     }
     if (
       // eslint-disable-next-line eqeqeq
@@ -299,7 +299,7 @@ export default class NodeChanger extends Component<Props, State> {
           <div className="control">
             <button
               className="button is-warning"
-              onClick={this.browseForTurtleCoind}
+              onClick={this.browseForNinjaCoind}
             >
               <span className="icon is-small">
                 <i className="fas fa-folder-open" />
