@@ -130,7 +130,7 @@ export default class Import extends Component<Props, State> {
 
     if (currentPageNumber === 1) {
       const [restoredWallet, error] = WalletBackend.importWalletFromSeed(
-        new Daemon('blockapi.turtlepay.io', 443),
+        new Daemon('server.ninajcoin.org', 11801),
         scanHeight === '' ? 0 : Number(scanHeight),
         mnemonicSeed
       );

@@ -133,7 +133,7 @@ export default class ImportKey extends Component<Props, State> {
 
     if (currentPageNumber === 1) {
       const [restoredWallet, error] = WalletBackend.importWalletFromKeys(
-        new Daemon('blockapi.turtlepay.io', 443),
+        new Daemon('server.ninjacoin.org', 11801),
         scanHeight === '' ? 0 : Number(scanHeight),
         privateViewKey,
         privateSpendKey

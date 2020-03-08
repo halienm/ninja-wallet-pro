@@ -36,7 +36,7 @@ export default class WalletSession {
     host: 'server.ninjacoin.org',
     port: 11801,
     ssl: false,
-    sslDetermined: false
+    sslDetermined: true
   };
 
   preparedTransactionHash: string = '';

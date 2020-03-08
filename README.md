@@ -5,7 +5,7 @@
 ![License](https://img.shields.io/github/license/ninjacoin-master/ninja-wallet-pro)
 ![Version](https://img.shields.io/github/v/release/ninjacoin-master/ninja-wallet-pro)
 
-  NinjaCoin Wallet Pro Wallet is a NinjaCoin wallet that uses <a href="http://electron.atom.io/">Electron</a>, <a href="https://facebook.github.io/react/">React</a>, <a href="https://github.com/turtlecoin/ninjacoin-wallet-backend-js">ninjacoin-wallet-backend-JS</a>, <a href="https://github.com/reactjs/redux">Redux</a>, <a href="https://github.com/reactjs/react-router">React Router</a>, <a href="http://webpack.github.io/docs/">Webpack</a> and <a href="https://github.com/gaearon/react-hot-loader">React Hot Loader</a>.
+  NinjaCoin Wallet Pro Wallet is a NinjaCoin wallet that uses <a href="http://electron.atom.io/">Electron</a>, <a href="https://facebook.github.io/react/">React</a>, <a href="https://github.com/turtlecoin/ninjacoin-wallet-backend-js">Turtlecoin-Wallet-Backend-JS</a>, <a href="https://github.com/reactjs/redux">Redux</a>, <a href="https://github.com/reactjs/react-router">React Router</a>, <a href="http://webpack.github.io/docs/">Webpack</a> and <a href="https://github.com/gaearon/react-hot-loader">React Hot Loader</a>.
 </p>
 
 <p>
