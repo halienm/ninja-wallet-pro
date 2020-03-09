@@ -241,7 +241,7 @@ export default class MenuBuilder {
         {
           label: il8n.support,
           click() {
-            shell.openExternal('https://discord.gg/P7urHQs');
+            shell.openExternal('https://discord.gg/6XDxQax');
           }
         },
         {
@@ -461,7 +461,7 @@ export default class MenuBuilder {
           {
             label: il8n.support,
             click: () => {
-              shell.openExternal('https://discord.gg/P7urHQs');
+              shell.openExternal('https://discord.gg/6XDxQax');
             }
           },
           {
