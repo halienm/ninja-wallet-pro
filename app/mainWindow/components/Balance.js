@@ -6,6 +6,7 @@ import ReactLoading from 'react-loading';
 import ReactTooltip from 'react-tooltip';
 import { session, il8n, eventEmitter, config, configManager } from '../index';
 import { formatLikeCurrency, atomicToHuman } from '../utils/utils';
+import Configure from '../../Configure';
 
 type Props = {
   size: string,
@@ -71,7 +72,7 @@ export default class Balance extends Component<Props, State> {
 
   switchCurrency = () => {
     const { displayCurrency } = this.state;
-    if (displayCurrency === 'NINJA') {
+    if (displayCurrency === Configure.ticker) {
       this.setState({
         displayCurrency: 'fiat'
       });
@@ -80,10 +81,10 @@ export default class Balance extends Component<Props, State> {
     }
     if (displayCurrency === 'fiat') {
       this.setState({
-        displayCurrency: 'NINJA'
+        displayCurrency: Configure.ticker
       });
-      configManager.modifyConfig('displayCurrency', 'NINJA');
-      eventEmitter.emit('modifyCurrency', 'NINJA');
+      configManager.modifyConfig('displayCurrency', Configure.ticker);
+      eventEmitter.emit('modifyCurrency', Configure.ticker);
     }
     ReactTooltip.rebuild();
   };
@@ -103,10 +104,10 @@ export default class Balance extends Component<Props, State> {
 
     let balanceTooltip;
 
-    if (displayCurrency === 'NINJA') {
+    if (displayCurrency === Configure.ticker) {
       balanceTooltip =
-        `Unlocked: ${atomicToHuman(unlockedBalance, true)} ${il8n.NINJA}<br>` +
-        `Locked: ${atomicToHuman(lockedBalance, true)} ${il8n.NINJA}`;
+        `Unlocked: ${atomicToHuman(unlockedBalance, true)} ${Configure.ticker}<br>` +
+        `Locked: ${atomicToHuman(lockedBalance, true)} ${Configure.ticker}`;
     } else if (symbolLocation === 'prefix' && displayCurrency === 'fiat') {
       balanceTooltip =
         `Unlocked: ${fiatSymbol}${formatLikeCurrency(
@@ -145,7 +146,7 @@ export default class Balance extends Component<Props, State> {
       >
         <div className="tags has-addons">
           <span className={`tag ${color} ${size}`}>{il8n.balance_colon}</span>
-          {displayCurrency === 'NINJA' && (
+          {displayCurrency === Configure.ticker && (
             <span
               className={
                 lockedBalance > 0
@@ -161,7 +162,7 @@ export default class Balance extends Component<Props, State> {
               )}
               &nbsp;
               {atomicToHuman(unlockedBalance + lockedBalance, true)}
-              &nbsp;{il8n.NINJA}
+              &nbsp;{Configure.ticker}
             </span>
           )}
           {displayCurrency === 'fiat' && symbolLocation === 'prefix' && (

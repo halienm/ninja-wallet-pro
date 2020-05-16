@@ -4,6 +4,7 @@
 import React, { Component } from 'react';
 import ReactTooltip from 'react-tooltip';
 import { clipboard, remote } from 'electron';
+import Configure from '../../Configure';
 import log from 'electron-log';
 import jdenticon from 'jdenticon';
 import { WalletBackend, Daemon } from 'ninjacoin-wallet-backend';
@@ -32,8 +33,8 @@ export default class NewWallet extends Component<Props, State> {
     this.state = {
       darkMode: config.darkMode,
       newWallet: WalletBackend.createWallet(
-        new Daemon('server.ninjacoin.org', 11801)
-      ),
+        Configure.defaultDaemon,
+        Configure),
       activePage: 'generate',
       password: '',
       confirmPassword: '',
@@ -135,9 +136,10 @@ export default class NewWallet extends Component<Props, State> {
     if (currentPageNumber === 4) {
       // import the seed so we can confirm it works
       const [confirmWallet, err] = WalletBackend.importWalletFromSeed(
-        new Daemon('server.ninjacoin.org', 11801),
+        Configure.defaultDaemon,
         100000,
-        confirmSeed
+        confirmSeed,
+        Configure
       );
 
       // the seed wasn't valid

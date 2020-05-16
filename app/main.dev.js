@@ -1,5 +1,6 @@
 // Copyright (C) 2019 ExtraHash
-//
+// Copyright (C) 2019, WrkzCoin
+// Copyright (C) 2019, NinjaCoin
 // Please see the included LICENSE file for more information.
 import path from 'path';
 import os from 'os';
@@ -21,6 +22,7 @@ import MenuBuilder from './menu';
 import iConfig from './mainWindow/constants/config';
 import packageInfo from '../package.json';
 import MessageRelayer from './MessageRelayer';
+import Configure from './Configure';
 
 const windowEvents = new EventEmitter();
 
@@ -64,7 +66,7 @@ if (fs.existsSync(`${programDirectory}/config.json`)) {
     .readFileSync(`${programDirectory}/config.json`)
     .toString();
 
-    // check if the user config is valid JSON before parsing it
+  // check if the user config is valid JSON before parsing it
   try {
     config = JSON.parse(rawUserConfig);
   } catch {
@@ -184,9 +186,9 @@ contextMenu({
       visible: params.selectionText.trim().length === 64,
       click: () => {
         shell.openExternal(
-          `http://explorer.ninjacoin.org/?hash=${encodeURIComponent(
+          `${Configure.ExplorerURL}/?search=${encodeURIComponent(
             params.selectionText
-          )}#blockchain_transaction`
+          )}`
         );
       }
     },
@@ -220,7 +222,7 @@ app.on('ready', async () => {
   await installExtensions();
 
   mainWindow = new BrowserWindow({
-    title: `NinjaCoin Wallet Pro v${version}`,
+    title: `Ninja Wallet Pro v${version}`,
     useContentSize: true,
     show: false,
     width: 1250,

@@ -1,7 +1,7 @@
 {
-  "name": "ninja-wallet-pro",
+  "name": "Ninja-Wallet-Pro",
   "productName": "Ninja Wallet Pro",
-  "version": "2.0.2",
+  "version": "2.0.4",
   "description": "NinjaCoin wallet based on React, React Router, Webpack, and React Hot Loader",
   "scripts": {
     "build": "concurrently \"yarn build-main\" \"yarn build-renderer\"",
@@ -47,7 +47,7 @@
   "main": "./app/main.prod.js",
   "build": {
     "productName": "Ninja Wallet Pro",
-    "appId": "wallet.ninjawalletpro.extra",
+    "appId": "ninja.wallet.pro",
     "files": [
       "app/dist/",
       "app/mainWindow/app.html",
@@ -93,8 +93,8 @@
     },
     "publish": {
       "provider": "github",
-      "owner": "NinjaCoin",
-      "repo": "ninja-wallet-pro",
+      "owner": "NinjaCoin-Master",
+      "repo": "Ninja-Wallet-Pro",
       "private": false
     }
   },
@@ -103,10 +103,27 @@
     "url": "git+https://github.com/ninjacoin-master/ninja-wallet-pro.git"
   },
   "author": {
-    "name": "ExtraHash",
-    "email": "extrahash@protonmail.com",
-    "url": "http://getproton.org"
+    "name": "Ninja",
+    "email": "contact@ninjacoin.org",
+    "url": "https://github.com/ninjacoin-master/ninja-wallet-pro"
   },
+  "contributors": [
+    {
+      "name": "ExtraHash",
+      "email": "extrahash@protonmail.com",
+      "url": "http://getproton.org"
+    },
+    {
+      "name": "Vikram Rangaraj",
+      "email": "vikr01@icloud.com",
+      "url": "https://github.com/vikr01"
+    },
+    {
+      "name": "Amila Welihinda",
+      "email": "amilajack@gmail.com",
+      "url": "https://github.com/amilajack"
+    }
+  ],
   "license": "GPL-3.0",
   "bugs": {
     "url": "https://github.com/ninjacoin-master/ninja-wallet-pro/issues"
@@ -115,9 +132,11 @@
     "ninjacoin",
     "gui wallet",
     "electron",
-    "ninja wallet"
+    "proton",
+    "ninja",
+    "ninja wallet pro"
   ],
-  "homepage": "https://github.com/ninjacoin-master/ninja-wallet-pro#readme",
+  "homepage": "https://github.com/ninjacoin/turtle-wallet-proton#readme",
   "jest": {
     "testURL": "http://localhost/",
     "moduleNameMapper": {
@@ -242,7 +261,6 @@
     "file-loader": "^4.2.0",
     "history": "^4.9.0",
     "jdenticon": "^2.2.0",
-    "ninjacoin-wallet-backend": "^5.0.4",
     "qrcode.react": "^0.9.3",
     "react": "^16.8.6",
     "react-dom": "^16.8.6",
@@ -261,7 +279,8 @@
     "request-promise": "^4.2.4",
     "semver": "^6.2.0",
     "source-code-pro": "^2.30.2",
-    "tail": "^2.0.3"
+    "tail": "^2.0.3",
+    "ninjacoin-wallet-backend": "^5.0.4"
   },
   "devEngines": {
     "node": ">=10.x",

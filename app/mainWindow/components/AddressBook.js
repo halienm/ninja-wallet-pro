@@ -1,5 +1,6 @@
 // Copyright (C) 2019 ExtraHash
-//
+// Copyright (C) 2019, WrkzCoin
+// Copyright (C) 2019, NinjaCoin
 // Please see the included LICENSE file for more information.
 import fs from 'fs';
 import React, { Component } from 'react';
@@ -15,6 +16,7 @@ import Redirector from './Redirector';
 import { uiType } from '../utils/utils';
 import { addressList, directories, loginCounter, config } from '../index';
 import routes from '../constants/routes';
+import Configure from '../../Configure';
 
 type State = {
   darkMode: boolean,
@@ -147,7 +149,7 @@ class AddressBook extends Component<Props, State> {
     let badAddress = false;
     let badPaymentID = false;
 
-    if (!validateAddress(newAddress, true)) {
+    if (!validateAddress(newAddress, true, Configure)) {
       badAddress = true;
     } else {
       badAddress = false;

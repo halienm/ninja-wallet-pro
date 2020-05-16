@@ -1,5 +1,6 @@
 // Copyright (C) 2019 ExtraHash
-//
+// Copyright (C) 2019, WrkzCoin
+// Copyright (C) 2019, NinjaCoin
 // Please see the included LICENSE file for more information.
 import request from 'request-promise';
 import log from 'electron-log';
@@ -18,7 +19,7 @@ export default class AutoUpdater {
       log.debug('Checking for updates...');
       const options = {
         method: 'GET',
-        url: `https://github.com/NinjaCoin-Master/ninja-wallet-pro/releases/latest/${operatingSystem}/${currentVersion}/${arch}`,
+        url: `https://api.getproton.org/latest/${operatingSystem}/${currentVersion}/${arch}`,
         json: true
       };
       request(options, (error, response, body) => {

@@ -4,60 +4,58 @@
 // Please see the included LICENSE file for more information.
 import React, { Component } from 'react';
 import { ipcRenderer } from 'electron';
-import { uiType } from '../utils/utils';
 import { config, configManager } from '../index';
+import { uiType } from '../utils/utils';
 
 type State = {
-  closeToTray: boolean
+  enableAutoOptimization: boolean
 };
 
 type Props = {
   darkMode: boolean
 };
 
-export default class CloseToTrayToggle extends Component<Props, State> {
+export default class AutoOptimizationToggle extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
     this.state = {
-      closeToTray: config.closeToTray || false
+      enableAutoOptimization: config.enableAutoOptimization || false
     };
-    this.closeToTrayOn = this.closeToTrayOn.bind(this);
-    this.closeToTrayOff = this.closeToTrayOff.bind(this);
+    this.toggleAutoOptimize = this.toggleAutoOptimize.bind(this);
   }
 
   componentWillMount() {}
 
   componentWillUnmount() {}
 
-  closeToTrayOn = () => {
+  toggleAutoOptimize = () => {
+    const { enableAutoOptimization } = this.state;
+    configManager.modifyConfig(
+      'enableAutoOptimization',
+      !enableAutoOptimization
+    );
     this.setState({
-      closeToTray: true
+      enableAutoOptimization: !enableAutoOptimization
     });
-    configManager.modifyConfig('closeToTray', true);
-    ipcRenderer.send('closeToTrayToggle', true);
-  };
-
-  closeToTrayOff = () => {
-    this.setState({
-      closeToTray: false
-    });
-    configManager.modifyConfig('closeToTray', false);
-    ipcRenderer.send('closeToTrayToggle', false);
+    ipcRenderer.send(
+      'fromFrontend',
+      'AutoOptimizationRequest',
+      !enableAutoOptimization
+    );
   };
 
   render() {
     const { darkMode } = this.props;
     const { textColor } = uiType(darkMode);
-    const { closeToTray } = this.state;
-
+    const { enableAutoOptimization } = this.state;
     return (
       <div>
-        {closeToTray === false && (
+        {enableAutoOptimization === false && (
           <span className={textColor}>
             <a
               className="button is-danger"
-              onClick={this.closeToTrayOn}
-              onKeyPress={this.closeToTrayOn}
+              onClick={this.toggleAutoOptimize}
+              onKeyPress={this.toggleAutoOptimize}
               role="button"
               tabIndex={0}
             >
@@ -65,15 +63,15 @@ export default class CloseToTrayToggle extends Component<Props, State> {
                 <i className="fas fa-times" />
               </span>
             </a>
-            &nbsp;&nbsp; Close To Tray: <b>Off</b>
+            &nbsp;&nbsp; Auto Optimization: <b>Off</b>
           </span>
         )}
-        {closeToTray === true && (
+        {enableAutoOptimization === true && (
           <span className={textColor}>
             <a
               className="button is-success"
-              onClick={this.closeToTrayOff}
-              onKeyPress={this.closeToTrayOff}
+              onClick={this.toggleAutoOptimize}
+              onKeyPress={this.toggleAutoOptimize}
               role="button"
               tabIndex={0}
             >
@@ -81,7 +79,7 @@ export default class CloseToTrayToggle extends Component<Props, State> {
                 <i className="fa fa-check" />
               </span>
             </a>
-            &nbsp;&nbsp; Close To Tray: <b>On</b>
+            &nbsp;&nbsp; Auto Optimization: <b>On</b> &nbsp;&nbsp;
           </span>
         )}
       </div>

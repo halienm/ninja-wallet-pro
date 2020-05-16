@@ -5,7 +5,7 @@ import fs from 'fs';
 import log from 'electron-log';
 import { config } from '../index';
 
-export default class NinjaCoinWalletProConfig {
+export default class NinjaConfig {
   configPath;
 
   constructor(pConfig: any, configPath: string) {

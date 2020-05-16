@@ -20,7 +20,7 @@ import iConfig from './constants/config';
 import AutoUpdater from './wallet/autoUpdater';
 import LoginCounter from './wallet/loginCounter';
 import { uiType } from './utils/utils';
-import NinjaCoinWalletProConfig from './wallet/ninjaConfig';
+import NinjaConfig from './wallet/ninjaConfig';
 
 export function savedInInstallDir(savePath: string) {
   const programDirectory = path.resolve(remote.app.getAppPath(), '../../');
@@ -55,14 +55,14 @@ export let configManager = null;
 export const eventEmitter = new EventEmitter();
 eventEmitter.setMaxListeners(6);
 
-export const updater = new AutoUpdater();
-updater.getLatestVersion();
+// export const updater = new AutoUpdater();
+// updater.getLatestVersion();
 
 export let loginCounter = new LoginCounter();
 
-remote.app.setAppUserModelId('wallet.ninjawalletpro.extra');
+remote.app.setAppUserModelId('ninja.wallet.pro');
 
-log.debug(`NinjaCoin Wallet Pro wallet started...`);
+log.debug(`Proton wallet started...`);
 
 const [programDirectory] = directories;
 
@@ -123,7 +123,7 @@ eventEmitter.on('updateRequired', updateFile => {
       </center>
       <br />
       <p className={`subtitle ${textColor}`}>
-        There&apos;s a new version of NinjaCoin Wallet Pro Wallet available. Would you like to
+        There&apos;s a new version of Proton Wallet available. Would you like to
         download it?
       </p>
     </div>
@@ -141,7 +141,7 @@ ipcRenderer.on('fromMain', (event: Electron.IpcRendererEvent, message: any) => {
   const { data, messageType } = message;
   switch (messageType) {
     case 'config':
-      configManager = new NinjaCoinWalletProConfig(data.config, data.configPath);
+      configManager = new NinjaConfig(data.config, data.configPath);
       break;
     default:
       log.info(data);
@@ -155,6 +155,9 @@ ipcRenderer.on(
     const { data, messageType } = message;
 
     switch (messageType) {
+      case 'authenticationError':
+        handleAuthenticationError(data);
+        break;
       case 'prepareTransactionResponse':
         handlePrepareTransactionResponse(data);
         break;
@@ -319,6 +322,19 @@ function handleSaveWalletResponse(response: any) {
   }
 }
 
+function handleAuthenticationError(error: any) {
+  const message = (
+    <div>
+      <center>
+        <p className="title has-text-danger">Wallet Open Error!</p>
+      </center>
+      <br />
+      <p className={`subtitle ${textColor}`}>{error.errorString}</p>
+    </div>
+  );
+  eventEmitter.emit('openModal', message, 'OK', null, null);
+}
+
 function handlePasswordChangeResponse(response: any) {
   const { status, error } = response;
   if (status === 'SUCCESS') {
@@ -428,17 +444,17 @@ eventEmitter.on('handleOpen', handleOpen);
 
 function handleAbout() {
   remote.shell.openExternal(
-    'http://github.com/ninjacoin-master/ninja-wallet-pro#readme'
+    `${Configure.GitHubRepo}/issues#readme`
   );
 }
 
 function handleHelp() {
-  remote.shell.openExternal('https://discord.ninjacoin.org');
+  remote.shell.openExternal(`${Configure.DiscordURL}`)
 }
 
 function handleIssues() {
   remote.shell.openExternal(
-    'https://github.com/ninjacoin-master/ninja-wallet-pro/issues'
+    `${Configure.GitHubRepo}/issues`
   );
 }
 

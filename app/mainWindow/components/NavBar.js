@@ -1,5 +1,6 @@
 // Copyright (C) 2019 ExtraHash
-//
+// Copyright (C) 2019, WrkzCoin
+// Copyright (C) 2019, NinjaCoin
 // Please see the included LICENSE file for more information.
 
 import React, { Component } from 'react';
@@ -111,7 +112,7 @@ class NavBar extends Component<Props, State> {
                   <div className="navbar-item">
                     <img
                       src="images/icon_color_64x64.png"
-                      alt="proton wallet logo in green"
+                      alt="ninja wallet logo in green"
                     />
                   </div>
                 </div>

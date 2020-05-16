@@ -1,5 +1,6 @@
 // Copyright (C) 2019 ExtraHash
-//
+// Copyright (C) 2019, WrkzCoin
+// Copyright (C) 2019, NinjaCoin
 // Please see the included LICENSE file for more information.
 import React, { Component } from 'react';
 import log from 'electron-log';
@@ -84,7 +85,7 @@ export default class FirstStartup extends Component<Props, State> {
           <div className="mid-div">
             <div className={`box loginbox passwordchangebox ${fillColor}`}>
               <h1 className={`title has-text-centered ${redTitleColor}`}>
-                {il8n.welcome_to_proton}
+                {il8n.welcome_to_ninja}
               </h1>
               <button
                 className={`button is-large is-fullwidth ${buttonColor}`}

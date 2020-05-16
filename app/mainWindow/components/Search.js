@@ -24,6 +24,7 @@ import {
 } from '../index';
 import routes from '../constants/routes';
 import settings from '../constants/settings';
+import Configure from '../../Configure';
 
 type Props = {
   query: string
@@ -158,7 +159,7 @@ export default class Search extends Component<Props, States> {
     const { query } = this.state;
 
     remote.shell.openExternal(
-      `http://explorer.ninjacoin.org/?hash=${encodeURIComponent(query)}`
+      `${Configure.ExplorerURL}/transaction.html?hash=${encodeURIComponent(query)}`
     );
   };
 
@@ -166,7 +167,7 @@ export default class Search extends Component<Props, States> {
     const hash = event.target.value;
 
     remote.shell.openExternal(
-      `http://explorer.ninjacoin.org/?hash=${encodeURIComponent(hash)}#blockchain_transaction`
+      `${Configure.ExplorerURL}/transaction.html?hash=${encodeURIComponent(hash)}`
     );
   };
 
@@ -437,7 +438,7 @@ export default class Search extends Component<Props, States> {
                           {amount < 0 && (
                             <td>
                               <p className="has-text-danger has-text-right">
-                                {displayCurrency === 'NINJA' &&
+                                {displayCurrency === Configure.ticker &&
                                   atomicToHuman(amount, true)}
                                 {displayCurrency === 'fiat' &&
                                   symbolLocation === 'prefix' &&
@@ -468,7 +469,7 @@ export default class Search extends Component<Props, States> {
                           {amount > 0 && (
                             <td>
                               <p className="has-text-right">
-                                {displayCurrency === 'NINJA' &&
+                                {displayCurrency === Configure.ticker &&
                                   atomicToHuman(amount, true)}
                                 {displayCurrency === 'fiat' &&
                                   symbolLocation === 'prefix' &&
@@ -543,7 +544,7 @@ export default class Search extends Component<Props, States> {
                                       {hash} <br />
                                       {paymentID !== '' ? paymentID : 'none'}
                                       <br />
-                                      {atomicToHuman(fee, true)} NINJA
+                                      {atomicToHuman(fee, true)} Configure.ticker
                                       <br />
                                       <p
                                         className={
@@ -552,7 +553,7 @@ export default class Search extends Component<Props, States> {
                                             : ''
                                         }
                                       >
-                                        {atomicToHuman(amount, true)} NINJA
+                                        {atomicToHuman(amount, true)} Configure.ticker
                                       </p>
                                       <br />
                                       <br />

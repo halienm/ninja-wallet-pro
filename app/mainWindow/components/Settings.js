@@ -1,5 +1,6 @@
 // Copyright (C) 2019 ExtraHash
-//
+// Copyright (C) 2019, WrkzCoin
+// Copyright (C) 2019, NinjaCoin
 // Please see the included LICENSE file for more information.
 import React, { Component, Fragment } from 'react';
 import { ipcRenderer } from 'electron';
@@ -19,6 +20,7 @@ import Rescanner from './Rescanner';
 import DarkModeToggle from './DarkModeToggle';
 import CloseToTrayToggle from './CloseToTrayToggle';
 import ScanCoinbaseToggle from './ScanCoinbaseToggle';
+import AutoOptimizationToggle from './AutoOptimizationToggle';
 import NotificationsToggle from './NotificationsToggle';
 
 type Props = {};
@@ -310,6 +312,8 @@ export default class Settings extends Component<Props, State> {
                     <br />
                     <ScanCoinbaseToggle darkMode={darkMode} />
                     <br />
+                    <AutoOptimizationToggle darkMode={darkMode} />
+                    <br />
                     <LogLevelSelector darkMode={darkMode} />
                     <br />
                     <button
@@ -388,6 +392,8 @@ export default class Settings extends Component<Props, State> {
                       <Rescanner darkMode={darkMode} />
                       <br />
                       <ScanCoinbaseToggle darkMode={darkMode} />
+                      <br />
+                      <AutoOptimizationToggle darkMode={darkMode} />
                     </div>
                   )}
                   {previousTab === 'display' && masterSwitch && (
