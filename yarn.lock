@@ -3989,6 +3989,11 @@ cookie@0.3.1:
   resolved "https://registry.yarnpkg.com/cookie/-/cookie-0.3.1.tgz#e7e0a1f9ef43b4c8ba925c5c5a96e806d16873bb"
   integrity sha1-5+Ch+e9DtMi6klxcWpboBtFoc7s=
 
+cookie@^1.0.1:
+  version "1.0.2"
+  resolved "https://registry.yarnpkg.com/cookie/-/cookie-1.0.2.tgz#27360701532116bd3f1f9416929d176afe1e4610"
+  integrity sha512-9Kr/j4O16ISv8zBBhJoi4bXOYNTkFLOqSL3UDB0njXxCXNezjeyVrJyGOWtgfs/q2km1gwBcfH8q1yEGoMYunA==
+
 copy-concurrently@^1.0.0:
   version "1.0.5"
   resolved "https://registry.yarnpkg.com/copy-concurrently/-/copy-concurrently-1.0.5.tgz#92297398cae34937fcafd6ec8139c18051f0b5e0"
@@ -9197,6 +9202,19 @@ nice-try@^1.0.4:
   resolved "https://registry.yarnpkg.com/nice-try/-/nice-try-1.0.5.tgz#a3378a7696ce7d223e88fc9b764bd7ef1089e366"
   integrity sha512-1nh45deeb5olNY7eX82BkPO7SSxR5SSYJiPTrTdFUVYwAl8CKMA5N9PjTYkHiRjisVcxcQ1HXdLhx2qxxJzLNQ==
 
+ninjacoin-wallet-backend@^5.0.4:
+  version "5.0.4"
+  resolved "https://registry.yarnpkg.com/ninjacoin-wallet-backend/-/ninjacoin-wallet-backend-5.0.4.tgz#a4db7bde68da429195fbb9dfc20007f123e1d948"
+  integrity sha512-8y3/W4+gQzBeHVZDvws4HeZZEEfnYJIqrJJwQzH3TQnVnp8kMFLDaKkDXw0VTAABf4kLvUBaPLV9RSbM3Zb10g==
+  dependencies:
+    lodash "^4.17.15"
+    object-sizeof "^1.5.2"
+    pbkdf2 "^3.0.17"
+    request "^2.88.0"
+    request-promise-native "^1.0.8"
+    turtlecoin-utils "1.0.20"
+    typescript "^3.7.2"
+
 nise@^1.4.10:
   version "1.4.10"
   resolved "https://registry.yarnpkg.com/nise/-/nise-1.4.10.tgz#ae46a09a26436fae91a38a60919356ae6db143b6"
@@ -10968,7 +10986,7 @@ react-router-dom@^5.0.0:
     tiny-invariant "^1.0.2"
     tiny-warning "^1.0.0"
 
-react-router@5.0.0, react-router@^5.0.0:
+react-router@5.0.0:
   version "5.0.0"
   resolved "https://registry.yarnpkg.com/react-router/-/react-router-5.0.0.tgz#349863f769ffc2fa10ee7331a4296e86bc12879d"
   integrity sha512-6EQDakGdLG/it2x9EaCt9ZpEEPxnd0OCLBHQ1AcITAAx7nCnyvnzf76jKWG1s2/oJ7SSviUgfWHofdYljFexsA==
@@ -10983,6 +11001,15 @@ react-router@5.0.0, react-router@^5.0.0:
     react-is "^16.6.0"
     tiny-invariant "^1.0.2"
     tiny-warning "^1.0.0"
+
+react-router@^7.5.2:
+  version "7.5.2"
+  resolved "https://registry.yarnpkg.com/react-router/-/react-router-7.5.2.tgz#889137b9ce91dadc06eb40997f57f08199845973"
+  integrity sha512-9Rw8r199klMnlGZ8VAsV/I8WrIF6IyJ90JQUdboupx1cdkgYqwnrYjH+I/nY/7cA1X5zia4mDJqH36npP7sxGQ==
+  dependencies:
+    cookie "^1.0.1"
+    set-cookie-parser "^2.6.0"
+    turbo-stream "2.4.0"
 
 react-select@^3.0.5:
   version "3.0.5"
@@ -11922,6 +11949,11 @@ set-blocking@^2.0.0, set-blocking@~2.0.0:
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/set-blocking/-/set-blocking-2.0.0.tgz#045f9782d011ae9a6803ddd382b24392b3d890f7"
   integrity sha1-BF+XgtARrppoA93TgrJDkrPYkPc=
+
+set-cookie-parser@^2.6.0:
+  version "2.7.1"
+  resolved "https://registry.yarnpkg.com/set-cookie-parser/-/set-cookie-parser-2.7.1.tgz#3016f150072202dfbe90fadee053573cc89d2943"
+  integrity sha512-IOc8uWeOZgnb3ptbCURJWNjWUPcO3ZnTTdzsurqERrP6nPyv+paC55vJM0LpOlT2ne+Ix+9+CRG1MNLlyZ4GjQ==
 
 set-value@^0.4.3:
   version "0.4.3"
@@ -13357,18 +13389,23 @@ tunnel-agent@0.6.0, tunnel-agent@^0.6.0:
   dependencies:
     safe-buffer "^5.0.1"
 
-ninjacoin-crypto@^3.1.3:
+turbo-stream@2.4.0:
+  version "2.4.0"
+  resolved "https://registry.yarnpkg.com/turbo-stream/-/turbo-stream-2.4.0.tgz#1e4fca6725e90fa14ac4adb782f2d3759a5695f0"
+  integrity sha512-FHncC10WpBd2eOmGwpmQsWLDoK4cqsA/UT/GqNoaKOQnT8uzhtCbg3EoUDMvqpOSAI0S26mr0rkjzbOO6S3v1g==
+
+turtlecoin-crypto@^3.1.3:
   version "3.1.4"
-  resolved "https://registry.yarnpkg.com/ninjacoin-crypto/-/ninjacoin-crypto-3.1.4.tgz#35968218daf0ee1c38f8bdebe1db5228cde11922"
+  resolved "https://registry.yarnpkg.com/turtlecoin-crypto/-/turtlecoin-crypto-3.1.4.tgz#35968218daf0ee1c38f8bdebe1db5228cde11922"
   integrity sha512-rJKi3syg4KB9UF5yObqCxGSwbz8yt/4xaLBLkro7sBW2MFSdeo2Pq+HkHaW/4uKH1Mvv28KMNJMxm6HPl2Cr4Q==
   dependencies:
     bindings "^1.5.0"
     nan "^2.14.0"
     prebuild-install "^5.3.3"
 
-ninjacoin-utils@1.0.20:
+turtlecoin-utils@1.0.20:
   version "1.0.20"
-  resolved "https://registry.yarnpkg.com/ninjacoin-utils/-/ninjacoin-utils-1.0.20.tgz#9a00251009ffaf4939d6e1bc69aec2e0a25a9fd6"
+  resolved "https://registry.yarnpkg.com/turtlecoin-utils/-/turtlecoin-utils-1.0.20.tgz#9a00251009ffaf4939d6e1bc69aec2e0a25a9fd6"
   integrity sha512-PcTPaNIPNY8yOKvnsMeQ2TZnRmftwFryjC/AW7dWx/qJCCiIOM1p5klPdNmvqk2E9CShPhOT7w7ZjBwz+tLStg==
   dependencies:
     crc "^3.8.0"
@@ -13377,20 +13414,7 @@ ninjacoin-utils@1.0.20:
     secure-random-string "^1.1.0"
     varint "^5.0.0"
   optionalDependencies:
-    ninjacoin-crypto "^3.1.3"
-
-ninjacoin-wallet-backend@^5.0.0:
-  version "5.0.4"
-  resolved "https://registry.yarnpkg.com/ninjacoin-wallet-backend/-/ninjacoin-wallet-backend-5.0.4.tgz#43f37719f56ec3184a3061d33434bda1f3a4856d"
-  integrity sha512-CvKOctuxDPHz4pwd/Lz3jHMjCXs31WweP5MKMELm6bY7ZSa14qWk+ZY1e3HLHO1x2bNsjzpZeCM5H5P20qgaRA==
-  dependencies:
-    lodash "^4.17.15"
-    object-sizeof "^1.5.2"
-    pbkdf2 "^3.0.17"
-    request "^2.88.0"
-    request-promise-native "^1.0.8"
-    ninjacoin-utils "1.0.20"
-    typescript "^3.7.2"
+    turtlecoin-crypto "^3.1.3"
 
 tweetnacl@^0.14.3, tweetnacl@~0.14.0:
   version "0.14.5"
